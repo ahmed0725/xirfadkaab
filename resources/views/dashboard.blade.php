@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="text-xl font-semibold text-slate-800">School Dashboard</h2>
+        <h2 class="text-xl font-semibold text-slate-800">{{ $systemSettings->school_name ?? 'Xirfad Kaab' }} Dashboard</h2>
     </x-slot>
     <div class="space-y-4">
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -23,7 +23,10 @@
         </div>
 
         <div class="card text-slate-700">
-            <p class="font-semibold">Welcome to Xirfad Kaab Schools Management System</p>
+            <p class="font-semibold">Welcome to {{ $systemSettings->school_name ?? 'Xirfad Kaab' }} Schools Management System</p>
+            @if(! empty($systemSettings->address))
+                <p class="mt-1 text-sm text-slate-600">{{ $systemSettings->address }}</p>
+            @endif
             <p class="mt-2 text-sm text-slate-500">Use the left sidebar to manage students, classes, subjects, attendance, fees, reports, and settings.</p>
         </div>
     </div>

@@ -3,12 +3,16 @@
     <div class="mx-auto max-w-3xl">
         <div class="card receipt-print">
             <div class="mb-4 flex items-start justify-between border-b border-slate-200 pb-4">
-                <div class="flex items-center gap-3">
-                    <div class="h-12 w-12 rounded-full bg-blue-100 text-center leading-[3rem] font-bold text-blue-700">XK</div>
+                <div class="flex items-start gap-3">
+                    <x-application-logo class="h-12 w-auto shrink-0 text-blue-700" />
                     <div>
-                        <h3 class="text-lg font-bold text-slate-800">Xirfad Kaab Schools</h3>
-                        <p class="text-xs text-slate-500">Address: Hargeisa, Somaliland</p>
-                        <p class="text-xs text-slate-500">Contact: +252 63 0000000 | info@xirfadkaab.test</p>
+                        <h3 class="text-lg font-bold text-slate-800">{{ $systemSettings->school_name ?? 'Xirfad Kaab' }}</h3>
+                        @if(! empty($systemSettings->address))
+                            <p class="text-xs text-slate-500">{{ $systemSettings->address }}</p>
+                        @endif
+                        @if(! empty($systemSettings->contact_info))
+                            <p class="text-xs text-slate-500">{{ $systemSettings->contact_info }}</p>
+                        @endif
                     </div>
                 </div>
                 <div class="text-right text-xs text-slate-500">

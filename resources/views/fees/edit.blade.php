@@ -17,6 +17,12 @@
                 </select>
                 <input type="number" name="fee_year" value="{{ old('fee_year', $fee->fee_year) }}" class="rounded-lg border-slate-300 p-2 text-sm" min="2000" max="2100" required>
             </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <label class="inline-flex items-center gap-2 text-sm text-slate-700">
+                    <input type="checkbox" name="custom_amount" value="1" class="rounded border-slate-300" @checked(old('custom_amount', $useCustomAmount ?? false))>
+                    <span>Custom tuition amount (override class default)</span>
+                </label>
+            </div>
             <input type="number" step="0.01" name="amount" value="{{ old('amount', $fee->amount) }}" class="rounded-lg border-slate-300 p-2 text-sm" required>
             <input type="number" step="0.01" name="paid" value="{{ old('paid', $fee->paid) }}" class="rounded-lg border-slate-300 p-2 text-sm" required>
             <input type="date" name="date" value="{{ old('date', $fee->date->format('Y-m-d')) }}" class="rounded-lg border-slate-300 p-2 text-sm" required>

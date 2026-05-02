@@ -18,6 +18,8 @@ class SchoolClassFactory extends Factory
             'class_name' => 'Grade ' . fake()->unique()->numberBetween(1, 99),
             'classroom' => 'Room ' . fake()->numberBetween(1, 30),
             'monthly_fee_amount' => fake()->randomElement([80, 90, 100, 120, 150]),
+            'shift' => fake()->randomElement(SchoolClass::SHIFTS),
+            'is_active' => true,
         ];
     }
 }

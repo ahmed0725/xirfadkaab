@@ -36,7 +36,7 @@ class StudentController extends Controller
      */
     public function create(): View
     {
-        $classes = SchoolClass::orderBy('class_name')->get();
+        $classes = SchoolClass::query()->active()->orderBy('class_name')->get();
 
         return view('students.create', compact('classes'));
     }
@@ -46,7 +46,10 @@ class StudentController extends Controller
      */
     public function store(StoreStudentRequest $request): RedirectResponse
     {
-        Student::create($request->validated());
+        $data = $request->validated();
+        $data['student_id'] = Student::generateNextStudentId();
+
+        Student::create($data);
 
         return redirect()->route('students.index')->with('success', 'Student registered successfully.');
     }
@@ -56,7 +59,12 @@ class StudentController extends Controller
      */
     public function show(Student $student): View
     {
-        $student->load(['schoolClass', 'attendances', 'fees']);
+        $student->load([
+            'schoolClass',
+            'attendances',
+            'fees',
+            'additionalFeeCharges' => fn ($q) => $q->latest('date')->limit(20),
+        ]);
 
         return view('students.show', compact('student'));
     }
@@ -66,7 +74,13 @@ class StudentController extends Controller
      */
     public function edit(Student $student): View
     {
-        $classes = SchoolClass::orderBy('class_name')->get();
+        $classes = SchoolClass::query()
+            ->where(function ($query) use ($student) {
+                $query->where('is_active', true)
+                    ->orWhere('id', $student->school_class_id);
+            })
+            ->orderBy('class_name')
+            ->get();
 
         return view('students.edit', compact('student', 'classes'));
     }

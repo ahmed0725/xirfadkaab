@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AdditionalFeeCharge;
 use App\Models\Fee;
 use App\Models\SchoolClass;
 use App\Models\Student;
@@ -34,9 +35,20 @@ class FeeController extends Controller
         $classes = SchoolClass::with('students')->orderBy('class_name')->get();
         $students = Student::with('schoolClass')->orderBy('name')->get();
         $classSummaries = $this->buildClassSummaries($month, $year, $classes);
-        $filters = compact('month', 'year', 'classId', 'studentId', 'paymentStatus');
+        $additionalCategory = $request->input('additional_category');
 
-        return view('fees.index', compact('fees', 'students', 'classes', 'classSummaries', 'filters'));
+        $additionalCharges = AdditionalFeeCharge::query()
+            ->with('student.schoolClass')
+            ->when($studentId, fn ($query) => $query->where('student_id', $studentId))
+            ->when($classId, fn ($query) => $query->whereHas('student', fn ($sub) => $sub->where('school_class_id', $classId)))
+            ->when($additionalCategory, fn ($query) => $query->where('category', $additionalCategory))
+            ->latest('date')
+            ->paginate(15, ['*'], 'additional_page')
+            ->withQueryString();
+
+        $filters = compact('month', 'year', 'classId', 'studentId', 'paymentStatus', 'additionalCategory');
+
+        return view('fees.index', compact('fees', 'students', 'classes', 'classSummaries', 'filters', 'additionalCharges'));
     }
 
     public function create(): View
@@ -49,6 +61,11 @@ class FeeController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $student = Student::with('schoolClass')->find($request->input('student_id'));
+        if ($student && ! $request->boolean('custom_amount')) {
+            $request->merge(['amount' => (float) ($student->schoolClass?->monthly_fee_amount ?? 0)]);
+        }
+
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0'],
             'paid' => ['required', 'numeric', 'min:0', 'lte:amount'],
@@ -77,14 +94,22 @@ class FeeController extends Controller
 
     public function edit(Fee $fee): View
     {
+        $fee->load('student.schoolClass');
         $students = Student::with('schoolClass')->orderBy('name')->get();
         $months = $this->months();
+        $classDefault = (float) ($fee->student->schoolClass?->monthly_fee_amount ?? 0);
+        $useCustomAmount = abs((float) $fee->amount - $classDefault) > 0.009;
 
-        return view('fees.edit', compact('fee', 'students', 'months'));
+        return view('fees.edit', compact('fee', 'students', 'months', 'useCustomAmount'));
     }
 
     public function update(Request $request, Fee $fee): RedirectResponse
     {
+        $student = Student::with('schoolClass')->find($request->input('student_id'));
+        if ($student && ! $request->boolean('custom_amount')) {
+            $request->merge(['amount' => (float) ($student->schoolClass?->monthly_fee_amount ?? 0)]);
+        }
+
         $validated = $request->validate([
             'student_id' => [
                 'required',

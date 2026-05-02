@@ -15,10 +15,14 @@ class SchoolDataSeeder extends Seeder
     {
         $classNames = ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'];
         $classes = collect($classNames)->map(function (string $className, int $index) {
+            $shifts = ['morning', 'afternoon', 'evening'];
+
             return SchoolClass::create([
                 'class_name' => $className,
                 'classroom' => 'Room ' . ($index + 1),
                 'monthly_fee_amount' => [80, 90, 100, 110, 120, 130][$index],
+                'shift' => $shifts[$index % 3],
+                'is_active' => true,
             ]);
         });
         $subjectPool = ['Mathematics', 'English', 'Science', 'History', 'Geography', 'ICT', 'Civics', 'Arabic'];
@@ -33,10 +37,16 @@ class SchoolDataSeeder extends Seeder
                 ]));
         }
 
-        $students = Student::factory()->count(24)->make()->each(function (Student $student) use ($classes): void {
-            $student->school_class_id = $classes->random()->id;
-            $student->save();
-        });
+        $students = collect();
+
+        // Create students sequentially so XIR-### generation can safely increment.
+        foreach (range(1, 24) as $_) {
+            $class = $classes->random();
+
+            $students->push(Student::factory()->create([
+                'school_class_id' => $class->id,
+            ]));
+        }
 
         foreach ($students as $student) {
             $studentSubjects = Subject::query()->where('school_class_id', $student->school_class_id)->pluck('id');
@@ -53,7 +63,8 @@ class SchoolDataSeeder extends Seeder
             }
 
             for ($i = 0; $i < 3; $i++) {
-                $monthDate = now()->subMonths($i);
+                // Use a fresh copy to avoid any chance of date-mutation affecting month calculations.
+                $monthDate = now()->copy()->startOfMonth()->subMonths($i);
                 $amount = (float) $student->schoolClass->monthly_fee_amount;
                 $paid = rand(0, (int) $amount);
 

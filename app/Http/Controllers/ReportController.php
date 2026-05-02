@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use App\Models\Exam;
+use App\Models\ExamResult;
 use App\Models\Fee;
 use App\Models\SchoolClass;
 use App\Models\Student;
@@ -25,6 +27,8 @@ class ReportController extends Controller
         'class_fee_summary' => 'Class Fee Summary Report',
         'pending_fees' => 'Pending Fees Report',
         'revenue_trend' => 'Fee Revenue Trend Report',
+        'exam_results_by_class' => 'Exam Results by Class',
+        'student_exam_history' => 'Student Exam History',
     ];
 
     public function index(Request $request): View
@@ -86,7 +90,26 @@ class ReportController extends Controller
             ->orderBy('class_name')
             ->get();
 
-        $reportPayload = $this->generateReportPayload($selectedReportType, $students, $fees, $attendance, $classes, $month, $year);
+        $exams = Exam::query()
+            ->with(['schoolClass', 'subject', 'examResults'])
+            ->whereMonth('exam_date', $month)
+            ->whereYear('exam_date', $year)
+            ->when($classId, fn ($query) => $query->where('school_class_id', $classId))
+            ->orderByDesc('exam_date')
+            ->get();
+
+        $examResults = ExamResult::query()
+            ->with(['student', 'exam.schoolClass', 'exam.subject'])
+            ->whereHas('exam', function ($query) use ($month, $year) {
+                $query->whereMonth('exam_date', $month)
+                    ->whereYear('exam_date', $year);
+            })
+            ->when($studentId, fn ($query) => $query->where('student_id', $studentId))
+            ->when($classId, fn ($query) => $query->whereHas('student', fn ($sub) => $sub->where('school_class_id', $classId)))
+            ->orderByDesc('id')
+            ->get();
+
+        $reportPayload = $this->generateReportPayload($selectedReportType, $students, $fees, $attendance, $classes, $month, $year, $exams, $examResults);
         $filters = compact('month', 'year', 'classId', 'studentId');
 
         return [
@@ -102,7 +125,7 @@ class ReportController extends Controller
         ];
     }
 
-    private function generateReportPayload(string $reportType, Collection $students, Collection $fees, Collection $attendance, Collection $classes, int $month, int $year): array
+    private function generateReportPayload(string $reportType, Collection $students, Collection $fees, Collection $attendance, Collection $classes, int $month, int $year, Collection $exams, Collection $examResults): array
     {
         $feesByStudent = $fees->keyBy('student_id');
 
@@ -215,6 +238,48 @@ class ReportController extends Controller
                     })->all(),
                 ],
                 'summary' => ['Year Total Collection' => number_format((float) $fees->sum('paid'), 2)],
+            ],
+            'exam_results_by_class' => [
+                'table' => [
+                    'columns' => ['Exam', 'Class', 'Subject', 'Date', 'Max', 'Average', 'Results recorded'],
+                    'rows' => $exams->map(function (Exam $exam) {
+                        $results = $exam->examResults;
+                        $avg = $results->isEmpty() ? '—' : number_format((float) $results->avg('marks_obtained'), 2);
+
+                        return [
+                            $exam->title,
+                            $exam->schoolClass?->class_name ?? '—',
+                            $exam->subject?->subject_name ?? '—',
+                            $exam->exam_date->format('Y-m-d'),
+                            number_format((float) $exam->max_marks, 2),
+                            $avg,
+                            (string) $results->count(),
+                        ];
+                    })->values()->all(),
+                ],
+                'summary' => ['Exams in period' => $exams->count()],
+            ],
+            'student_exam_history' => [
+                'table' => [
+                    'columns' => ['Student', 'Exam', 'Class', 'Subject', 'Marks', 'Grade', 'Date'],
+                    'rows' => $examResults->map(function (ExamResult $row) {
+                        $exam = $row->exam;
+
+                        return [
+                            $row->student?->name ?? '—',
+                            $exam?->title ?? '—',
+                            $exam?->schoolClass?->class_name ?? '—',
+                            $exam?->subject?->subject_name ?? '—',
+                            number_format((float) $row->marks_obtained, 2),
+                            $row->grade ?? '—',
+                            $exam?->exam_date?->format('Y-m-d') ?? '—',
+                        ];
+                    })->values()->all(),
+                ],
+                'summary' => array_merge(
+                    ['Rows' => $examResults->count()],
+                    $examResults->isEmpty() ? ['Hint' => 'Select a student or class filter if the list is empty.'] : []
+                ),
             ],
             default => ['table' => ['columns' => [], 'rows' => []], 'summary' => []],
         };
