@@ -11,6 +11,11 @@
             <div class="metric-card"><p class="text-sm text-slate-500">Today Attendance</p><p class="mt-1 text-sm text-slate-600">P: {{ $stats['present_today'] }} | A: {{ $stats['absent_today'] }} | L: {{ $stats['late_today'] }}</p></div>
         </div>
 
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="metric-card"><p class="text-sm text-slate-500">Expenses this month</p><p class="mt-1 text-3xl font-bold text-slate-700">${{ number_format($stats['expenses_this_month'], 2) }}</p></div>
+            <div class="metric-card"><p class="text-sm text-slate-500">Unpaid payroll records</p><p class="mt-1 text-3xl font-bold text-amber-700">{{ $stats['payroll_pending_count'] }}</p></div>
+        </div>
+
         <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <div class="card">
                 <h3 class="mb-3 text-sm font-semibold text-slate-700">Fee Collection Trend (Last 7 dates)</h3>

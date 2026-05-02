@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use App\Models\Expense;
 use App\Models\Fee;
 use App\Models\SchoolClass;
 use App\Models\Student;
@@ -13,6 +14,17 @@ class DashboardController extends Controller
     public function __invoke(): View
     {
         $today = now()->toDateString();
+        $startMonth = now()->copy()->startOfMonth();
+        $endMonth = now()->copy()->endOfMonth();
+
+        $expensesThisMonth = (float) Expense::query()
+            ->whereBetween('expense_date', [$startMonth->toDateString(), $endMonth->toDateString()])
+            ->sum('amount');
+
+        $payrollPending = Expense::query()
+            ->where('category', Expense::CATEGORY_PAYROLL)
+            ->where('status', 'unpaid')
+            ->count();
 
         $stats = [
             'students' => Student::count(),
@@ -22,6 +34,8 @@ class DashboardController extends Controller
             'present_today' => Attendance::whereDate('date', $today)->where('status', 'present')->count(),
             'absent_today' => Attendance::whereDate('date', $today)->where('status', 'absent')->count(),
             'late_today' => Attendance::whereDate('date', $today)->where('status', 'late')->count(),
+            'expenses_this_month' => $expensesThisMonth,
+            'payroll_pending_count' => $payrollPending,
         ];
 
         $feeTrend = Fee::query()

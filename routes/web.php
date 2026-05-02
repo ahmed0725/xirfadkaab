@@ -12,6 +12,8 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\AdditionalFeeController;
 use App\Http\Controllers\ExamController;
+use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\InventoryItemController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -33,6 +35,10 @@ Route::middleware('auth')->group(function () {
         Route::resource('subjects', SubjectController::class)->except(['destroy']);
         Route::get('fees', [FeeController::class, 'index'])->name('fees.index');
         Route::get('fees/{fee}/receipt', [FeeController::class, 'receipt'])->name('fees.receipt');
+        Route::get('expenses', [ExpenseController::class, 'index'])->name('expenses.index');
+        Route::get('expenses/{expense}', [ExpenseController::class, 'show'])->whereNumber('expense')->name('expenses.show');
+        Route::get('inventory-items', [InventoryItemController::class, 'index'])->name('inventory-items.index');
+        Route::get('inventory-items/{inventory_item}', [InventoryItemController::class, 'show'])->whereNumber('inventory_item')->name('inventory-items.show');
         Route::get('exams/create', [ExamController::class, 'create'])->name('exams.create');
         Route::post('exams', [ExamController::class, 'store'])->name('exams.store');
         Route::get('exams/{exam}/edit', [ExamController::class, 'edit'])->name('exams.edit');
@@ -72,6 +78,16 @@ Route::middleware('auth')->group(function () {
         Route::patch('additional-fees/{additional_fee_charge}', [AdditionalFeeController::class, 'update'])->name('additional-fees.update');
         Route::delete('additional-fees/{additional_fee_charge}', [AdditionalFeeController::class, 'destroy'])->name('additional-fees.destroy');
         Route::get('additional-fees/{additional_fee_charge}/receipt', [AdditionalFeeController::class, 'receipt'])->name('additional-fees.receipt');
+        Route::get('expenses/create', [ExpenseController::class, 'create'])->name('expenses.create');
+        Route::post('expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+        Route::get('expenses/{expense}/edit', [ExpenseController::class, 'edit'])->whereNumber('expense')->name('expenses.edit');
+        Route::patch('expenses/{expense}', [ExpenseController::class, 'update'])->whereNumber('expense')->name('expenses.update');
+        Route::delete('expenses/{expense}', [ExpenseController::class, 'destroy'])->whereNumber('expense')->name('expenses.destroy');
+        Route::get('inventory-items/create', [InventoryItemController::class, 'create'])->name('inventory-items.create');
+        Route::post('inventory-items', [InventoryItemController::class, 'store'])->name('inventory-items.store');
+        Route::get('inventory-items/{inventory_item}/edit', [InventoryItemController::class, 'edit'])->whereNumber('inventory_item')->name('inventory-items.edit');
+        Route::patch('inventory-items/{inventory_item}', [InventoryItemController::class, 'update'])->whereNumber('inventory_item')->name('inventory-items.update');
+        Route::delete('inventory-items/{inventory_item}', [InventoryItemController::class, 'destroy'])->whereNumber('inventory_item')->name('inventory-items.destroy');
         Route::delete('attendance/{attendance}', [AttendanceController::class, 'destroy'])->name('attendance.destroy');
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('reports/print', [ReportController::class, 'print'])->name('reports.print');

@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Models\Attendance;
 use App\Models\Exam;
 use App\Models\ExamResult;
+use App\Models\Expense;
 use App\Models\Fee;
+use App\Models\InventoryItem;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -29,6 +31,10 @@ class ReportController extends Controller
         'revenue_trend' => 'Fee Revenue Trend Report',
         'exam_results_by_class' => 'Exam Results by Class',
         'student_exam_history' => 'Student Exam History',
+        'expenses_by_period' => 'Expenses by Period',
+        'expenses_by_category' => 'Expenses by Category Summary',
+        'inventory_available' => 'Inventory — Available Items',
+        'inventory_low_stock' => 'Inventory — Low Stock Items',
     ];
 
     public function index(Request $request): View
@@ -57,6 +63,7 @@ class ReportController extends Controller
         $year = (int) ($request->input('year') ?: now()->year);
         $classId = $request->input('school_class_id');
         $studentId = $request->input('student_id');
+        $expenseCategory = $request->input('expense_category');
         $selectedReportType = $request->input('report_type', 'monthly_fee_collection');
         if (! array_key_exists($selectedReportType, self::REPORT_TYPES)) {
             $selectedReportType = 'monthly_fee_collection';
@@ -109,8 +116,17 @@ class ReportController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        $reportPayload = $this->generateReportPayload($selectedReportType, $students, $fees, $attendance, $classes, $month, $year, $exams, $examResults);
-        $filters = compact('month', 'year', 'classId', 'studentId');
+        $expenses = Expense::query()
+            ->whereMonth('expense_date', $month)
+            ->whereYear('expense_date', $year)
+            ->when($expenseCategory, fn ($query) => $query->where('category', $expenseCategory))
+            ->orderByDesc('expense_date')
+            ->get();
+
+        $inventoryItems = InventoryItem::query()->orderBy('item_name')->get();
+
+        $reportPayload = $this->generateReportPayload($selectedReportType, $students, $fees, $attendance, $classes, $month, $year, $exams, $examResults, $expenses, $inventoryItems);
+        $filters = compact('month', 'year', 'classId', 'studentId', 'expenseCategory');
 
         return [
             'reportTypes' => self::REPORT_TYPES,
@@ -125,7 +141,7 @@ class ReportController extends Controller
         ];
     }
 
-    private function generateReportPayload(string $reportType, Collection $students, Collection $fees, Collection $attendance, Collection $classes, int $month, int $year, Collection $exams, Collection $examResults): array
+    private function generateReportPayload(string $reportType, Collection $students, Collection $fees, Collection $attendance, Collection $classes, int $month, int $year, Collection $exams, Collection $examResults, Collection $expenses, Collection $inventoryItems): array
     {
         $feesByStudent = $fees->keyBy('student_id');
 
@@ -280,6 +296,74 @@ class ReportController extends Controller
                     ['Rows' => $examResults->count()],
                     $examResults->isEmpty() ? ['Hint' => 'Select a student or class filter if the list is empty.'] : []
                 ),
+            ],
+            'expenses_by_period' => [
+                'table' => [
+                    'columns' => ['Date', 'Category', 'Amount', 'Payment method', 'Staff', 'Status', 'Description'],
+                    'rows' => $expenses->map(function (Expense $e) {
+                        return [
+                            $e->expense_date->format('Y-m-d'),
+                            Expense::CATEGORIES[$e->category] ?? $e->category,
+                            number_format((float) $e->amount, 2),
+                            Expense::PAYMENT_METHODS[$e->payment_method] ?? $e->payment_method,
+                            $e->staff_name ?? '—',
+                            Expense::STATUSES[$e->status] ?? $e->status,
+                            \Illuminate\Support\Str::limit((string) $e->description, 60) ?: '—',
+                        ];
+                    })->values()->all(),
+                ],
+                'summary' => [
+                    'Period' => Carbon::createFromDate($year, $month, 1)->format('F Y'),
+                    'Total' => number_format((float) $expenses->sum('amount'), 2),
+                    'Count' => $expenses->count(),
+                ],
+            ],
+            'expenses_by_category' => [
+                'table' => [
+                    'columns' => ['Category', 'Total amount', 'Transactions'],
+                    'rows' => $expenses->groupBy('category')->map(function ($group, $cat) {
+                        return [
+                            Expense::CATEGORIES[$cat] ?? $cat,
+                            number_format((float) $group->sum('amount'), 2),
+                            (string) $group->count(),
+                        ];
+                    })->values()->all(),
+                ],
+                'summary' => [
+                    'Period' => Carbon::createFromDate($year, $month, 1)->format('F Y'),
+                    'Grand total' => number_format((float) $expenses->sum('amount'), 2),
+                ],
+            ],
+            'inventory_available' => [
+                'table' => [
+                    'columns' => ['Item', 'Category', 'Quantity', 'Condition', 'Purchase date', 'Notes'],
+                    'rows' => $inventoryItems->filter(fn (InventoryItem $i) => $i->quantity > 0)->map(function (InventoryItem $i) {
+                        return [
+                            $i->item_name,
+                            $i->category,
+                            (string) $i->quantity,
+                            InventoryItem::CONDITIONS[$i->condition] ?? $i->condition,
+                            $i->purchase_date?->format('Y-m-d') ?? '—',
+                            \Illuminate\Support\Str::limit((string) $i->notes, 40) ?: '—',
+                        ];
+                    })->values()->all(),
+                ],
+                'summary' => ['Items in stock' => $inventoryItems->filter(fn (InventoryItem $i) => $i->quantity > 0)->count()],
+            ],
+            'inventory_low_stock' => [
+                'table' => [
+                    'columns' => ['Item', 'Category', 'Quantity', 'Threshold', 'Condition'],
+                    'rows' => $inventoryItems->filter(fn (InventoryItem $i) => $i->isLowStock())->map(function (InventoryItem $i) {
+                        return [
+                            $i->item_name,
+                            $i->category,
+                            (string) $i->quantity,
+                            (string) $i->effectiveLowStockThreshold(),
+                            InventoryItem::CONDITIONS[$i->condition] ?? $i->condition,
+                        ];
+                    })->values()->all(),
+                ],
+                'summary' => ['Low stock items' => $inventoryItems->filter(fn (InventoryItem $i) => $i->isLowStock())->count()],
             ],
             default => ['table' => ['columns' => [], 'rows' => []], 'summary' => []],
         };
