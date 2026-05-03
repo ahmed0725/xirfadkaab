@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -46,5 +47,23 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function teachingClasses(): BelongsToMany
+    {
+        return $this->belongsToMany(SchoolClass::class, 'school_class_user')->withTimestamps();
+    }
+
+    public function canManageAttendanceForClass(int $schoolClassId): bool
+    {
+        if (in_array($this->role, ['admin', 'user'], true)) {
+            return true;
+        }
+
+        if ($this->role !== 'teacher') {
+            return false;
+        }
+
+        return $this->teachingClasses()->whereKey($schoolClassId)->exists();
     }
 }

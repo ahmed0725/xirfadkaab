@@ -1,8 +1,8 @@
 <x-app-layout>
     <x-slot name="header"><h2 class="text-xl font-semibold text-slate-800">Reports Center</h2></x-slot>
     <div class="space-y-4">
-        <form method="GET" class="card grid gap-3 md:grid-cols-6">
-            <select name="report_type" class="rounded-lg border-slate-300 p-2 text-sm md:col-span-2">
+        <form method="GET" class="card grid gap-3 md:grid-cols-6 lg:grid-cols-8">
+            <select name="report_type" class="rounded-lg border-slate-300 p-2 text-sm md:col-span-2 lg:col-span-2">
                 @foreach($reportTypes as $type => $label)
                     <option value="{{ $type }}" @selected($selectedReportType === $type)>{{ $label }}</option>
                 @endforeach
@@ -16,7 +16,7 @@
             <select name="school_class_id" class="rounded-lg border-slate-300 p-2 text-sm">
                 <option value="">All classes</option>
                 @foreach($classes as $class)
-                    <option value="{{ $class->id }}" @selected((string)$filters['classId'] === (string)$class->id)>{{ $class->class_name }}</option>
+                    <option value="{{ $class->id }}" @selected((string)$filters['classId'] === (string)$class->id)>{{ $class->display_name }}</option>
                 @endforeach
             </select>
             <select name="student_id" class="rounded-lg border-slate-300 p-2 text-sm">
@@ -25,7 +25,13 @@
                     <option value="{{ $student->id }}" @selected((string)$filters['studentId'] === (string)$student->id)>{{ $student->name }}</option>
                 @endforeach
             </select>
-            <div class="flex gap-2">
+            <select name="expense_category" class="rounded-lg border-slate-300 p-2 text-sm">
+                <option value="">All expense types</option>
+                @foreach(\App\Models\Expense::CATEGORIES as $value => $label)
+                    <option value="{{ $value }}" @selected(($filters['expenseCategory'] ?? '') === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+            <div class="flex flex-wrap gap-2 md:col-span-2 lg:col-span-2">
                 <button class="btn-primary">Run</button>
                 <a href="{{ route('reports.print', request()->query()) }}" target="_blank" class="btn-secondary">Print</a>
                 <a href="{{ route('reports.pdf', request()->query()) }}" class="btn-secondary">PDF</a>

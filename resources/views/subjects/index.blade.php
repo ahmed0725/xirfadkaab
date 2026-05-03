@@ -9,7 +9,7 @@
                     @foreach($subjects as $subject)
                         <tr class="border-t border-slate-100 hover:bg-slate-50">
                             <td class="p-3">{{ $subject->subject_name }}</td>
-                            <td class="p-3">{{ $subject->schoolClass->class_name }}</td>
+                            <td class="p-3">{{ $subject->schoolClass->display_name }}</td>
                             <td class="p-3">
                                 <a class="text-blue-600" href="{{ route('subjects.show',$subject) }}">View</a>
                                 <a class="ml-2 text-indigo-600" href="{{ route('subjects.edit',$subject) }}">Edit</a>

@@ -7,7 +7,7 @@
                 <option value="">Select student</option>
                 @foreach($students as $student)
                     <option value="{{ $student->id }}" data-fee="{{ $student->schoolClass?->monthly_fee_amount ?? 0 }}">
-                        {{ $student->name }} ({{ $student->student_id }}) - {{ $student->schoolClass?->class_name }}
+                        {{ $student->name }} ({{ $student->student_id }}) - {{ $student->schoolClass?->display_name }}
                     </option>
                 @endforeach
             </select>

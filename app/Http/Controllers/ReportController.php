@@ -14,6 +14,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ReportController extends Controller
@@ -54,7 +55,7 @@ class ReportController extends Controller
         $data = $this->buildReportData($request);
         $pdf = Pdf::loadView('reports.print', $data);
 
-        return $pdf->download('report-' . $data['selectedReportType'] . '-' . now()->format('YmdHis') . '.pdf');
+        return $pdf->download('report-'.$data['selectedReportType'].'-'.now()->format('YmdHis').'.pdf');
     }
 
     private function buildReportData(Request $request): array
@@ -70,14 +71,14 @@ class ReportController extends Controller
         }
 
         $students = Student::query()
-            ->with('schoolClass')
+            ->with('schoolClass.courseType')
             ->when($classId, fn ($query) => $query->where('school_class_id', $classId))
             ->when($studentId, fn ($query) => $query->whereKey($studentId))
             ->orderBy('name')
             ->get();
 
         $fees = Fee::query()
-            ->with(['student.schoolClass'])
+            ->with(['student.schoolClass.courseType'])
             ->where('fee_month', $month)
             ->where('fee_year', $year)
             ->when($studentId, fn ($query) => $query->where('student_id', $studentId))
@@ -85,7 +86,7 @@ class ReportController extends Controller
             ->get();
 
         $attendance = Attendance::query()
-            ->with(['student.schoolClass', 'schoolClass'])
+            ->with(['student.schoolClass.courseType', 'schoolClass.courseType'])
             ->whereMonth('date', $month)
             ->whereYear('date', $year)
             ->when($classId, fn ($query) => $query->where('school_class_id', $classId))
@@ -93,12 +94,13 @@ class ReportController extends Controller
             ->get();
 
         $classes = SchoolClass::query()
-            ->with('students')
+            ->with(['students', 'courseType'])
             ->orderBy('class_name')
+            ->orderBy('class_time')
             ->get();
 
         $exams = Exam::query()
-            ->with(['schoolClass', 'subject', 'examResults'])
+            ->with(['schoolClass.courseType', 'subject', 'examResults'])
             ->whereMonth('exam_date', $month)
             ->whereYear('exam_date', $year)
             ->when($classId, fn ($query) => $query->where('school_class_id', $classId))
@@ -106,7 +108,7 @@ class ReportController extends Controller
             ->get();
 
         $examResults = ExamResult::query()
-            ->with(['student', 'exam.schoolClass', 'exam.subject'])
+            ->with(['student', 'exam.schoolClass.courseType', 'exam.subject'])
             ->whereHas('exam', function ($query) use ($month, $year) {
                 $query->whereMonth('exam_date', $month)
                     ->whereYear('exam_date', $year);
@@ -149,7 +151,7 @@ class ReportController extends Controller
             'student_register' => [
                 'table' => [
                     'columns' => ['Student ID', 'Name', 'Class', 'Status'],
-                    'rows' => $students->map(fn ($s) => [$s->student_id, $s->name, $s->schoolClass?->class_name ?? '-', ucfirst($s->status)])->values()->all(),
+                    'rows' => $students->map(fn ($s) => [$s->student_id, $s->name, $s->schoolClass?->display_name ?? '-', ucfirst($s->status)])->values()->all(),
                 ],
                 'summary' => ['Total Students' => $students->count()],
             ],
@@ -172,7 +174,8 @@ class ReportController extends Controller
                     'columns' => ['Class', 'Present', 'Absent', 'Late', 'Total'],
                     'rows' => $classes->map(function ($class) use ($attendance) {
                         $classAttendance = $attendance->where('school_class_id', $class->id);
-                        return [$class->class_name, $classAttendance->where('status', 'present')->count(), $classAttendance->where('status', 'absent')->count(), $classAttendance->where('status', 'late')->count(), $classAttendance->count()];
+
+                        return [$class->display_name, $classAttendance->where('status', 'present')->count(), $classAttendance->where('status', 'absent')->count(), $classAttendance->where('status', 'late')->count(), $classAttendance->count()];
                     })->values()->all(),
                 ],
                 'summary' => ['Classes' => $classes->count()],
@@ -182,7 +185,8 @@ class ReportController extends Controller
                     'columns' => ['Student', 'Class', 'Present', 'Absent', 'Late'],
                     'rows' => $students->map(function ($student) use ($attendance) {
                         $sa = $attendance->where('student_id', $student->id);
-                        return [$student->name, $student->schoolClass?->class_name ?? '-', $sa->where('status', 'present')->count(), $sa->where('status', 'absent')->count(), $sa->where('status', 'late')->count()];
+
+                        return [$student->name, $student->schoolClass?->display_name ?? '-', $sa->where('status', 'present')->count(), $sa->where('status', 'absent')->count(), $sa->where('status', 'late')->count()];
                     })->values()->all(),
                 ],
                 'summary' => ['Students With Attendance' => $students->count()],
@@ -190,7 +194,7 @@ class ReportController extends Controller
             'monthly_fee_collection' => [
                 'table' => [
                     'columns' => ['Student', 'Class', 'Amount', 'Paid', 'Pending'],
-                    'rows' => $fees->map(fn ($f) => [$f->student?->name ?? '-', $f->student?->schoolClass?->class_name ?? '-', number_format((float) $f->amount, 2), number_format((float) $f->paid, 2), number_format((float) $f->balance, 2)])->values()->all(),
+                    'rows' => $fees->map(fn ($f) => [$f->student?->name ?? '-', $f->student?->schoolClass?->display_name ?? '-', number_format((float) $f->amount, 2), number_format((float) $f->paid, 2), number_format((float) $f->balance, 2)])->values()->all(),
                 ],
                 'summary' => ['Period' => Carbon::createFromDate($year, $month, 1)->format('F Y'), 'Total Paid' => number_format((float) $fees->sum('paid'), 2), 'Total Pending' => number_format((float) $fees->sum('balance'), 2)],
             ],
@@ -225,7 +229,8 @@ class ReportController extends Controller
                                 }
                             }
                         }
-                        return [$class->class_name, $paidCount, $pendingCount, number_format($totalPaid, 2), number_format($totalPending, 2)];
+
+                        return [$class->display_name, $paidCount, $pendingCount, number_format($totalPaid, 2), number_format($totalPending, 2)];
                     })->values()->all(),
                 ],
                 'summary' => ['Classes' => $classes->count()],
@@ -238,11 +243,13 @@ class ReportController extends Controller
                         $expected = $fee ? (float) $fee->amount : (float) ($student->schoolClass?->monthly_fee_amount ?? 0);
                         $paid = $fee ? (float) $fee->paid : 0;
                         $pending = $fee ? (float) $fee->balance : $expected;
-                        return [$student->name, $student->schoolClass?->class_name ?? '-', number_format($expected, 2), number_format($paid, 2), number_format($pending, 2)];
+
+                        return [$student->name, $student->schoolClass?->display_name ?? '-', number_format($expected, 2), number_format($paid, 2), number_format($pending, 2)];
                     })->filter(fn ($row) => (float) str_replace(',', '', $row[4]) > 0)->values()->all(),
                 ],
                 'summary' => ['Total Pending Amount' => number_format((float) $students->sum(function ($student) use ($feesByStudent) {
                     $fee = $feesByStudent->get($student->id);
+
                     return $fee ? (float) $fee->balance : (float) ($student->schoolClass?->monthly_fee_amount ?? 0);
                 }), 2)],
             ],
@@ -264,7 +271,7 @@ class ReportController extends Controller
 
                         return [
                             $exam->title,
-                            $exam->schoolClass?->class_name ?? '—',
+                            $exam->schoolClass?->display_name ?? '—',
                             $exam->subject?->subject_name ?? '—',
                             $exam->exam_date->format('Y-m-d'),
                             number_format((float) $exam->max_marks, 2),
@@ -284,7 +291,7 @@ class ReportController extends Controller
                         return [
                             $row->student?->name ?? '—',
                             $exam?->title ?? '—',
-                            $exam?->schoolClass?->class_name ?? '—',
+                            $exam?->schoolClass?->display_name ?? '—',
                             $exam?->subject?->subject_name ?? '—',
                             number_format((float) $row->marks_obtained, 2),
                             $row->grade ?? '—',
@@ -308,7 +315,7 @@ class ReportController extends Controller
                             Expense::PAYMENT_METHODS[$e->payment_method] ?? $e->payment_method,
                             $e->staff_name ?? '—',
                             Expense::STATUSES[$e->status] ?? $e->status,
-                            \Illuminate\Support\Str::limit((string) $e->description, 60) ?: '—',
+                            Str::limit((string) $e->description, 60) ?: '—',
                         ];
                     })->values()->all(),
                 ],
@@ -344,7 +351,7 @@ class ReportController extends Controller
                             (string) $i->quantity,
                             InventoryItem::CONDITIONS[$i->condition] ?? $i->condition,
                             $i->purchase_date?->format('Y-m-d') ?? '—',
-                            \Illuminate\Support\Str::limit((string) $i->notes, 40) ?: '—',
+                            Str::limit((string) $i->notes, 40) ?: '—',
                         ];
                     })->values()->all(),
                 ],

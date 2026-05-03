@@ -16,7 +16,7 @@
             <select name="school_class_id" class="rounded-lg border-slate-300 p-2 text-sm">
                 <option value="">All classes</option>
                 @foreach($classes as $class)
-                    <option value="{{ $class->id }}" @selected((string)$filters['classId'] === (string)$class->id)>{{ $class->class_name }}</option>
+                    <option value="{{ $class->id }}" @selected((string)$filters['classId'] === (string)$class->id)>{{ $class->display_name }}</option>
                 @endforeach
             </select>
             <select name="student_id" class="rounded-lg border-slate-300 p-2 text-sm">

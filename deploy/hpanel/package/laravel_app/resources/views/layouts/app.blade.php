@@ -73,6 +73,16 @@
                     @endif
                     {{ $slot }}
                 </main>
+
+                <footer class="border-t border-slate-200 bg-white/80 px-4 py-4 text-center text-xs text-slate-500 sm:px-6 lg:px-8">
+                    <p class="font-medium text-slate-600">{{ $systemSettings->school_name ?? 'Xirfad Kaab' }}</p>
+                    @if(! empty($systemSettings->address))
+                        <p class="mt-1">{{ $systemSettings->address }}</p>
+                    @endif
+                    @if(! empty($systemSettings->contact_info))
+                        <p class="mt-0.5">{{ $systemSettings->contact_info }}</p>
+                    @endif
+                </footer>
             </div>
         </div>
     </body>

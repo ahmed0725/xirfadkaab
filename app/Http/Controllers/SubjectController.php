@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\SchoolClass;
 use App\Models\Subject;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -17,7 +17,7 @@ class SubjectController extends Controller
     public function index(): View
     {
         $subjects = Subject::with('schoolClass')->latest()->paginate(10);
-        $classes = SchoolClass::orderBy('class_name')->get();
+        $classes = SchoolClass::with('courseType')->orderBy('class_name')->orderBy('class_time')->get();
 
         return view('subjects.index', compact('subjects', 'classes'));
     }
@@ -27,7 +27,7 @@ class SubjectController extends Controller
      */
     public function create(): View
     {
-        $classes = SchoolClass::orderBy('class_name')->get();
+        $classes = SchoolClass::with('courseType')->orderBy('class_name')->orderBy('class_time')->get();
 
         return view('subjects.create', compact('classes'));
     }
@@ -57,7 +57,7 @@ class SubjectController extends Controller
      */
     public function show(Subject $subject): View
     {
-        $subject->load('schoolClass');
+        $subject->load('schoolClass.courseType');
 
         return view('subjects.show', compact('subject'));
     }
@@ -67,7 +67,7 @@ class SubjectController extends Controller
      */
     public function edit(Subject $subject): View
     {
-        $classes = SchoolClass::orderBy('class_name')->get();
+        $classes = SchoolClass::with('courseType')->orderBy('class_name')->orderBy('class_time')->get();
 
         return view('subjects.edit', compact('subject', 'classes'));
     }

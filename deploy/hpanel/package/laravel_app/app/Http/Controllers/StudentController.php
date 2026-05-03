@@ -17,7 +17,7 @@ class StudentController extends Controller
     public function index(): View
     {
         $students = Student::query()
-            ->with('schoolClass')
+            ->with(['schoolClass.courseType'])
             ->when(request('search'), fn ($query, $search) => $query->where('name', 'like', "%{$search}%")
                 ->orWhere('student_id', 'like', "%{$search}%"))
             ->when(request('school_class_id'), fn ($query, $classId) => $query->where('school_class_id', $classId))
@@ -26,7 +26,7 @@ class StudentController extends Controller
             ->paginate(12)
             ->withQueryString();
 
-        $classes = SchoolClass::orderBy('class_name')->get();
+        $classes = SchoolClass::with('courseType')->orderBy('class_name')->orderBy('class_time')->get();
 
         return view('students.index', compact('students', 'classes'));
     }
@@ -36,7 +36,7 @@ class StudentController extends Controller
      */
     public function create(): View
     {
-        $classes = SchoolClass::orderBy('class_name')->get();
+        $classes = SchoolClass::query()->with('courseType')->active()->orderBy('class_name')->orderBy('class_time')->get();
 
         return view('students.create', compact('classes'));
     }
@@ -59,7 +59,12 @@ class StudentController extends Controller
      */
     public function show(Student $student): View
     {
-        $student->load(['schoolClass', 'attendances', 'fees']);
+        $student->load([
+            'schoolClass.courseType',
+            'attendances',
+            'fees',
+            'additionalFeeCharges' => fn ($q) => $q->latest('date')->limit(20),
+        ]);
 
         return view('students.show', compact('student'));
     }
@@ -69,7 +74,15 @@ class StudentController extends Controller
      */
     public function edit(Student $student): View
     {
-        $classes = SchoolClass::orderBy('class_name')->get();
+        $classes = SchoolClass::query()
+            ->with('courseType')
+            ->where(function ($query) use ($student) {
+                $query->where('is_active', true)
+                    ->orWhere('id', $student->school_class_id);
+            })
+            ->orderBy('class_name')
+            ->orderBy('class_time')
+            ->get();
 
         return view('students.edit', compact('student', 'classes'));
     }

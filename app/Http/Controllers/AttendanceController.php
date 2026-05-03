@@ -6,8 +6,11 @@ use App\Models\Attendance;
 use App\Models\SchoolClass;
 use App\Models\Student;
 use App\Models\Subject;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -15,35 +18,85 @@ class AttendanceController extends Controller
 {
     public function index(Request $request): View
     {
-        $attendances = Attendance::with(['student', 'schoolClass', 'subject'])
+        $user = $request->user();
+        $allowedClassIds = $this->allowedSchoolClassIds($user);
+
+        $attendances = Attendance::with(['student', 'schoolClass.courseType', 'subject'])
             ->when($request->date, fn ($query, $date) => $query->whereDate('date', $date))
             ->when($request->school_class_id, fn ($query, $classId) => $query->where('school_class_id', $classId))
             ->when($request->student_id, fn ($query, $studentId) => $query->where('student_id', $studentId))
+            ->when($user->role === 'teacher', fn ($query) => $query->whereIn('school_class_id', $allowedClassIds))
             ->latest('date')
             ->paginate(20)
             ->withQueryString();
 
-        $classes = SchoolClass::with('students')->orderBy('class_name')->get();
+        $classes = $this->classListForFilters($user);
 
         return view('attendance.index', compact('attendances', 'classes'));
     }
 
     public function create(): View
     {
-        $classes = SchoolClass::with(['students', 'subjects'])->orderBy('class_name')->get();
+        $user = request()->user();
+        $classes = $this->classListForMarking($user);
 
         return view('attendance.mark', compact('classes'));
     }
 
+    public function classData(Request $request): JsonResponse
+    {
+        $request->validate([
+            'school_class_id' => ['required', 'exists:school_classes,id'],
+        ]);
+
+        $class = SchoolClass::query()
+            ->with(['courseType', 'students' => fn ($q) => $q->orderBy('name'), 'subjects' => fn ($q) => $q->orderBy('subject_name')])
+            ->findOrFail($request->school_class_id);
+
+        $this->authorize('view', $class);
+
+        return response()->json([
+            'class' => [
+                'id' => $class->id,
+                'display_name' => $class->display_name,
+            ],
+            'students' => $class->students->map(fn (Student $s) => [
+                'id' => $s->id,
+                'name' => $s->name,
+                'student_id' => $s->student_id,
+            ])->values(),
+            'subjects' => $class->subjects->map(fn (Subject $sub) => [
+                'id' => $sub->id,
+                'subject_name' => $sub->subject_name,
+            ])->values(),
+        ]);
+    }
+
     public function edit(Attendance $attendance): View
     {
-        $classes = SchoolClass::with(['students', 'subjects'])->orderBy('class_name')->get();
+        $this->authorize('view', $attendance->schoolClass);
+
+        $user = request()->user();
+        $classes = SchoolClass::query()
+            ->with('courseType')
+            ->with([
+                'students' => fn ($q) => $q->orderBy('name'),
+                'subjects' => fn ($q) => $q->orderBy('subject_name'),
+            ])
+            ->when($user->role === 'teacher', fn ($q) => $q->forTeacher($user))
+            ->orderBy('class_name')
+            ->orderBy('class_time')
+            ->get();
 
         return view('attendance.edit', compact('attendance', 'classes'));
     }
 
     public function store(Request $request): RedirectResponse
     {
+        if (! $request->user()->canManageAttendanceForClass((int) $request->input('school_class_id'))) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'date' => ['required', 'date'],
             'school_class_id' => ['required', 'exists:school_classes,id'],
@@ -97,6 +150,10 @@ class AttendanceController extends Controller
 
     public function update(Request $request, Attendance $attendance): RedirectResponse
     {
+        if (! $request->user()->canManageAttendanceForClass((int) $request->input('school_class_id'))) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'date' => ['required', 'date'],
             'school_class_id' => ['required', 'exists:school_classes,id'],
@@ -125,5 +182,39 @@ class AttendanceController extends Controller
         $attendance->delete();
 
         return redirect()->route('attendance.index')->with('success', 'Attendance record deleted.');
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    private function allowedSchoolClassIds(User $user): Collection
+    {
+        if (in_array($user->role, ['admin', 'user'], true)) {
+            return SchoolClass::query()->pluck('id');
+        }
+
+        return $user->teachingClasses()->pluck('school_classes.id');
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Collection<int, SchoolClass>
+     */
+    private function classListForFilters(User $user)
+    {
+        $query = SchoolClass::query()->with('courseType')->orderBy('class_name')->orderBy('class_time');
+
+        if ($user->role === 'teacher') {
+            $query->forTeacher($user);
+        }
+
+        return $query->get();
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Collection<int, SchoolClass>
+     */
+    private function classListForMarking(User $user)
+    {
+        return $this->classListForFilters($user);
     }
 }

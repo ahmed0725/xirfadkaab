@@ -3,7 +3,7 @@
     <div class="mx-auto max-w-5xl space-y-6">
         <div class="card space-y-2">
             <h3 class="text-xl font-semibold text-slate-800">{{ $student->name }} ({{ $student->student_id }})</h3>
-            <p class="text-sm text-slate-600">Class: {{ $student->schoolClass->class_name }} | Status: {{ $student->status }}</p>
+            <p class="text-sm text-slate-600">Class: {{ $student->schoolClass->display_name }} | Status: {{ $student->status }}</p>
             <p class="text-sm text-slate-600">Mother: {{ $student->mother_name }} | Phone: {{ $student->phone }}</p>
             <p class="text-sm text-slate-600">Age/Gender: {{ $student->age }} / {{ ucfirst($student->gender) }}</p>
             <p class="text-sm text-slate-600">Registration Date: {{ $student->registration_date->format('Y-m-d') }}</p>

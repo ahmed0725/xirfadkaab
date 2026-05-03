@@ -6,7 +6,7 @@
             <input type="date" name="date" value="{{ request('date') }}" class="rounded-lg border-slate-300 p-2 text-sm">
             <select name="school_class_id" class="rounded-lg border-slate-300 p-2 text-sm">
                 <option value="">All classes</option>
-                @foreach($classes as $class)<option value="{{ $class->id }}" @selected(request('school_class_id')==$class->id)>{{ $class->class_name }}</option>@endforeach
+                @foreach($classes as $class)<option value="{{ $class->id }}" @selected(request('school_class_id')==$class->id)>{{ $class->display_name }}</option>@endforeach
             </select>
             <button class="btn-primary">Filter</button>
         </form>
@@ -18,7 +18,7 @@
                         <tr class="border-t border-slate-100 hover:bg-slate-50">
                             <td class="p-3">{{ $attendance->date->format('Y-m-d') }}</td>
                             <td class="p-3">{{ $attendance->student->name }}</td>
-                            <td class="p-3">{{ $attendance->schoolClass->class_name }}</td>
+                            <td class="p-3">{{ $attendance->schoolClass->display_name }}</td>
                             <td class="p-3">{{ $attendance->subject?->subject_name ?? '-' }}</td>
                             <td class="p-3">{{ ucfirst($attendance->status) }}</td>
                             <td class="p-3">{{ $attendance->note }}</td>

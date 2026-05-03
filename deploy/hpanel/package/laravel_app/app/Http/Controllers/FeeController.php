@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AdditionalFeeCharge;
 use App\Models\Fee;
 use App\Models\SchoolClass;
 use App\Models\Student;
@@ -20,7 +21,7 @@ class FeeController extends Controller
         $studentId = $request->input('student_id');
         $paymentStatus = $request->input('payment_status');
 
-        $fees = Fee::with('student.schoolClass')
+        $fees = Fee::with(['student.schoolClass.courseType'])
             ->where('fee_month', $month)
             ->where('fee_year', $year)
             ->when($studentId, fn ($query) => $query->where('student_id', $studentId))
@@ -31,17 +32,28 @@ class FeeController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        $classes = SchoolClass::with('students')->orderBy('class_name')->get();
-        $students = Student::with('schoolClass')->orderBy('name')->get();
+        $classes = SchoolClass::with('courseType')->with('students')->orderBy('class_name')->orderBy('class_time')->get();
+        $students = Student::with('schoolClass.courseType')->orderBy('name')->get();
         $classSummaries = $this->buildClassSummaries($month, $year, $classes);
-        $filters = compact('month', 'year', 'classId', 'studentId', 'paymentStatus');
+        $additionalCategory = $request->input('additional_category');
 
-        return view('fees.index', compact('fees', 'students', 'classes', 'classSummaries', 'filters'));
+        $additionalCharges = AdditionalFeeCharge::query()
+            ->with('student.schoolClass.courseType')
+            ->when($studentId, fn ($query) => $query->where('student_id', $studentId))
+            ->when($classId, fn ($query) => $query->whereHas('student', fn ($sub) => $sub->where('school_class_id', $classId)))
+            ->when($additionalCategory, fn ($query) => $query->where('category', $additionalCategory))
+            ->latest('date')
+            ->paginate(15, ['*'], 'additional_page')
+            ->withQueryString();
+
+        $filters = compact('month', 'year', 'classId', 'studentId', 'paymentStatus', 'additionalCategory');
+
+        return view('fees.index', compact('fees', 'students', 'classes', 'classSummaries', 'filters', 'additionalCharges'));
     }
 
     public function create(): View
     {
-        $students = Student::with('schoolClass')->orderBy('name')->get();
+        $students = Student::with('schoolClass.courseType')->orderBy('name')->get();
         $months = $this->months();
 
         return view('fees.create', compact('students', 'months'));
@@ -49,6 +61,11 @@ class FeeController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $student = Student::with('schoolClass.courseType')->find($request->input('student_id'));
+        if ($student && ! $request->boolean('custom_amount')) {
+            $request->merge(['amount' => (float) ($student->schoolClass?->monthly_fee_amount ?? 0)]);
+        }
+
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0'],
             'paid' => ['required', 'numeric', 'min:0', 'lte:amount'],
@@ -77,14 +94,22 @@ class FeeController extends Controller
 
     public function edit(Fee $fee): View
     {
-        $students = Student::with('schoolClass')->orderBy('name')->get();
+        $fee->load('student.schoolClass');
+        $students = Student::with('schoolClass.courseType')->orderBy('name')->get();
         $months = $this->months();
+        $classDefault = (float) ($fee->student->schoolClass?->monthly_fee_amount ?? 0);
+        $useCustomAmount = abs((float) $fee->amount - $classDefault) > 0.009;
 
-        return view('fees.edit', compact('fee', 'students', 'months'));
+        return view('fees.edit', compact('fee', 'students', 'months', 'useCustomAmount'));
     }
 
     public function update(Request $request, Fee $fee): RedirectResponse
     {
+        $student = Student::with('schoolClass.courseType')->find($request->input('student_id'));
+        if ($student && ! $request->boolean('custom_amount')) {
+            $request->merge(['amount' => (float) ($student->schoolClass?->monthly_fee_amount ?? 0)]);
+        }
+
         $validated = $request->validate([
             'student_id' => [
                 'required',
@@ -128,7 +153,7 @@ class FeeController extends Controller
     private function generateReceiptNo(): string
     {
         do {
-            $receiptNo = 'RCP-' . now()->format('YmdHis') . '-' . random_int(100, 999);
+            $receiptNo = 'RCP-'.now()->format('YmdHis').'-'.random_int(100, 999);
         } while (Fee::where('receipt_no', $receiptNo)->exists());
 
         return $receiptNo;

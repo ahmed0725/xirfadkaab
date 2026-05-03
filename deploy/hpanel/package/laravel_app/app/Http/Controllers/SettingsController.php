@@ -34,8 +34,8 @@ class SettingsController extends Controller
             }
 
             $extension = $request->file('logo')->getClientOriginalExtension();
-            $filename = 'system-' . uniqid() . '.' . $extension;
-            $path = 'uploads/settings/' . $filename;
+            $filename = 'system-'.uniqid().'.'.$extension;
+            $path = 'uploads/settings/'.$filename;
 
             $request->file('logo')->move($uploadsDir, $filename);
 
@@ -52,4 +52,3 @@ class SettingsController extends Controller
         return redirect()->route('settings.edit')->with('success', 'System settings updated successfully.');
     }
 }
-

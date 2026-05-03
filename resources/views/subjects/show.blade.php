@@ -1,2 +1,2 @@
 <x-app-layout><x-slot name="header"><h2 class="font-semibold text-xl text-gray-800 leading-tight">Subject Details</h2></x-slot>
-<div class="py-8 max-w-3xl mx-auto sm:px-6 lg:px-8"><div class="bg-white p-6 rounded shadow-sm"><p><span class="font-semibold">Subject:</span> {{ $subject->subject_name }}</p><p><span class="font-semibold">Class:</span> {{ $subject->schoolClass->class_name }}</p></div></div></x-app-layout>
+<div class="py-8 max-w-3xl mx-auto sm:px-6 lg:px-8"><div class="bg-white p-6 rounded shadow-sm"><p><span class="font-semibold">Subject:</span> {{ $subject->subject_name }}</p><p><span class="font-semibold">Class:</span> {{ $subject->schoolClass->display_name }}</p></div></div></x-app-layout>

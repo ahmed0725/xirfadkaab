@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\SchoolClass;
 use App\Models\SystemSetting;
-use Illuminate\Support\ServiceProvider;
+use App\Policies\SchoolClassPolicy;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(SchoolClass::class, SchoolClassPolicy::class);
+
         View::composer(
             [
                 'layouts.navigation',
@@ -30,6 +35,8 @@ class AppServiceProvider extends ServiceProvider
                 'reports.index',
                 'reports.print',
                 'settings.edit',
+                'fees.receipt',
+                'fees.additional-receipt',
             ],
             function ($view) {
                 $view->with('systemSettings', SystemSetting::current());

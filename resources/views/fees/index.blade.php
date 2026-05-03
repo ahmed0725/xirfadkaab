@@ -19,7 +19,7 @@
                 <select name="school_class_id" class="rounded-lg border-slate-300 p-2 text-sm">
                     <option value="">All classes</option>
                     @foreach($classes as $class)
-                        <option value="{{ $class->id }}" @selected((string)$filters['classId'] === (string)$class->id)>{{ $class->class_name }}</option>
+                        <option value="{{ $class->id }}" @selected((string)$filters['classId'] === (string)$class->id)>{{ $class->display_name }}</option>
                     @endforeach
                 </select>
                 <select name="student_id" class="rounded-lg border-slate-300 p-2 text-sm">
@@ -54,7 +54,7 @@
                             <tr class="border-t border-slate-100 hover:bg-slate-50">
                                 <td class="p-3">{{ \Carbon\Carbon::create()->month($fee->fee_month)->format('F') }} {{ $fee->fee_year }}</td>
                                 <td class="p-3">{{ $fee->student->name }}</td>
-                                <td class="p-3">{{ $fee->student->schoolClass?->class_name }}</td>
+                                <td class="p-3">{{ $fee->student->schoolClass?->display_name }}</td>
                                 <td class="p-3">{{ number_format($fee->amount, 2) }}</td>
                                 <td class="p-3">{{ number_format($fee->paid, 2) }}</td>
                                 <td class="p-3">{{ number_format($fee->balance, 2) }}</td>
@@ -80,7 +80,7 @@
             <div class="grid gap-4 md:grid-cols-2">
                 @foreach($classSummaries as $summary)
                     <div class="card">
-                        <h3 class="font-semibold">{{ $summary['class']->class_name }}</h3>
+                        <h3 class="font-semibold">{{ $summary['class']->display_name }}</h3>
                         <p class="text-sm text-slate-600">Paid students: {{ $summary['paid_students']->count() }} | Pending students: {{ $summary['pending_students']->count() }}</p>
                         <p class="text-sm text-slate-600">Total paid: {{ number_format($summary['total_paid'], 2) }} | Total pending: {{ number_format($summary['total_pending'], 2) }}</p>
                     </div>
@@ -97,7 +97,7 @@
                 <select name="school_class_id" class="rounded-lg border-slate-300 p-2 text-sm">
                     <option value="">All classes</option>
                     @foreach($classes as $class)
-                        <option value="{{ $class->id }}" @selected((string)$filters['classId'] === (string)$class->id)>{{ $class->class_name }}</option>
+                        <option value="{{ $class->id }}" @selected((string)$filters['classId'] === (string)$class->id)>{{ $class->display_name }}</option>
                     @endforeach
                 </select>
                 <select name="student_id" class="rounded-lg border-slate-300 p-2 text-sm">
@@ -133,7 +133,7 @@
                             <tr class="border-t border-slate-100 hover:bg-slate-50">
                                 <td class="p-3">{{ $charge->date->format('Y-m-d') }}</td>
                                 <td class="p-3">{{ $charge->student->name }}</td>
-                                <td class="p-3">{{ $charge->student->schoolClass?->class_name }}</td>
+                                <td class="p-3">{{ $charge->student->schoolClass?->display_name }}</td>
                                 <td class="p-3">{{ \App\Models\AdditionalFeeCharge::CATEGORIES[$charge->category] ?? $charge->category }}</td>
                                 <td class="p-3">{{ number_format((float) $charge->total_amount, 2) }}</td>
                                 <td class="p-3">{{ number_format((float) $charge->paid, 2) }}</td>

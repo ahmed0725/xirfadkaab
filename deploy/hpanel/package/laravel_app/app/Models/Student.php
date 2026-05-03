@@ -3,9 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Model;
 
 class Student extends Model
 {
@@ -57,7 +57,7 @@ class Student extends Model
 
         $next = $maxSuffix + 1;
 
-        return 'XIR-' . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+        return 'XIR-'.str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }
 
     public function schoolClass(): BelongsTo
@@ -73,5 +73,15 @@ class Student extends Model
     public function fees(): HasMany
     {
         return $this->hasMany(Fee::class);
+    }
+
+    public function additionalFeeCharges(): HasMany
+    {
+        return $this->hasMany(AdditionalFeeCharge::class);
+    }
+
+    public function examResults(): HasMany
+    {
+        return $this->hasMany(ExamResult::class);
     }
 }

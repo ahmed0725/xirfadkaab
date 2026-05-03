@@ -36,9 +36,8 @@ class SystemSetting extends Model
         return static::query()->create([
             'logo_path' => $defaultLogoPath,
             'school_name' => 'Xirfad Kaab',
-            'address' => '',
+            'address' => 'Laascaanood, Waqooyi Bari',
             'contact_info' => '',
         ]);
     }
 }
-

@@ -1,19 +1,20 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\AdditionalFeeController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\ClassController;
+use App\Http\Controllers\CourseTypeController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExamController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\FeeController;
+use App\Http\Controllers\InventoryItemController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\SettingsController;
-use App\Http\Controllers\AdditionalFeeController;
-use App\Http\Controllers\ExamController;
-use App\Http\Controllers\ExpenseController;
-use App\Http\Controllers\InventoryItemController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -31,7 +32,10 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:admin,user')->group(function () {
         Route::resource('students', StudentController::class)->except(['destroy']);
-        Route::resource('classes', ClassController::class)->except(['destroy']);
+        Route::get('classes/create', [ClassController::class, 'create'])->name('classes.create');
+        Route::post('classes', [ClassController::class, 'store'])->name('classes.store');
+        Route::get('classes/{class}/edit', [ClassController::class, 'edit'])->name('classes.edit');
+        Route::put('classes/{class}', [ClassController::class, 'update'])->name('classes.update');
         Route::resource('subjects', SubjectController::class)->except(['destroy']);
         Route::get('fees', [FeeController::class, 'index'])->name('fees.index');
         Route::get('fees/{fee}/receipt', [FeeController::class, 'receipt'])->name('fees.receipt');
@@ -47,6 +51,11 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::middleware('role:admin,user,teacher')->group(function () {
+        Route::get('classes', [ClassController::class, 'index'])->name('classes.index');
+        Route::get('classes/{class}', [ClassController::class, 'show'])->name('classes.show');
+    });
+
+    Route::middleware('role:admin,user,teacher')->group(function () {
         Route::get('exams', [ExamController::class, 'index'])->name('exams.index');
         Route::get('exams/{exam}', [ExamController::class, 'show'])->name('exams.show');
         Route::post('exams/{exam}/results', [ExamController::class, 'storeResults'])->name('exams.results.store');
@@ -54,6 +63,7 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:admin,user,teacher')->group(function () {
         Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
+        Route::get('attendance/class-data', [AttendanceController::class, 'classData'])->name('attendance.class-data');
         Route::get('attendance/mark', [AttendanceController::class, 'create'])->name('attendance.create');
         Route::post('attendance', [AttendanceController::class, 'store'])->name('attendance.store');
         Route::get('attendance/{attendance}/edit', [AttendanceController::class, 'edit'])->name('attendance.edit');
@@ -61,6 +71,7 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::middleware('role:admin')->group(function () {
+        Route::resource('course-types', CourseTypeController::class)->except(['show']);
         Route::resource('users', UserController::class)->except(['show']);
         Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
         Route::post('settings', [SettingsController::class, 'update'])->name('settings.update');

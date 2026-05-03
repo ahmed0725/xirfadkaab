@@ -7,14 +7,14 @@
             <input type="date" name="date" value="{{ old('date', $attendance->date->format('Y-m-d')) }}" class="rounded-lg border-slate-300 p-2 text-sm" required>
             <select name="school_class_id" class="rounded-lg border-slate-300 p-2 text-sm" required>
                 @foreach($classes as $class)
-                    <option value="{{ $class->id }}" @selected(old('school_class_id', $attendance->school_class_id) == $class->id)>{{ $class->class_name }}</option>
+                    <option value="{{ $class->id }}" @selected(old('school_class_id', $attendance->school_class_id) == $class->id)>{{ $class->display_name }}</option>
                 @endforeach
             </select>
             <select name="student_id" class="rounded-lg border-slate-300 p-2 text-sm" required>
                 @foreach($classes as $class)
                     @foreach($class->students as $student)
                         <option value="{{ $student->id }}" @selected(old('student_id', $attendance->student_id) == $student->id)>
-                            {{ $class->class_name }} - {{ $student->name }}
+                            {{ $class->display_name }} — {{ $student->name }}
                         </option>
                     @endforeach
                 @endforeach
@@ -24,7 +24,7 @@
                 @foreach($classes as $class)
                     @foreach($class->subjects as $subject)
                         <option value="{{ $subject->id }}" @selected(old('subject_id', $attendance->subject_id) == $subject->id)>
-                            {{ $class->class_name }} - {{ $subject->subject_name }}
+                            {{ $class->display_name }} — {{ $subject->subject_name }}
                         </option>
                     @endforeach
                 @endforeach
