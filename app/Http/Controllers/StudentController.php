@@ -6,7 +6,9 @@ use App\Http\Requests\StoreStudentRequest;
 use App\Http\Requests\UpdateStudentRequest;
 use App\Models\SchoolClass;
 use App\Models\Student;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class StudentController extends Controller
@@ -52,6 +54,34 @@ class StudentController extends Controller
         Student::create($data);
 
         return redirect()->route('students.index')->with('success', 'Student registered successfully.');
+    }
+
+    public function search(Request $request): JsonResponse
+    {
+        $query = trim((string) $request->input('q', ''));
+
+        $students = Student::query()
+            ->with('schoolClass.courseType')
+            ->when($request->boolean('tuition_only'), fn ($builder) => $builder->requiresTuition())
+            ->when($query !== '', function ($builder) use ($query) {
+                $builder->where(function ($sub) use ($query) {
+                    $sub->where('name', 'like', "%{$query}%")
+                        ->orWhere('student_id', 'like', "%{$query}%");
+                });
+            })
+            ->orderBy('name')
+            ->limit(25)
+            ->get()
+            ->map(fn (Student $student) => [
+                'id' => $student->id,
+                'student_id' => $student->student_id,
+                'name' => $student->name,
+                'class_name' => $student->schoolClass?->display_name ?? '-',
+                'monthly_fee' => $student->expectedTuitionAmount(),
+                'fee_type' => $student->fee_type,
+            ]);
+
+        return response()->json($students);
     }
 
     /**

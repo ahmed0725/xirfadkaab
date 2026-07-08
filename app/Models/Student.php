@@ -11,6 +11,15 @@ class Student extends Model
 {
     use HasFactory;
 
+    public const FEE_TYPE_REGULAR = 'regular';
+
+    public const FEE_TYPE_FREE = 'free';
+
+    public const FEE_TYPES = [
+        self::FEE_TYPE_REGULAR => 'Regular Student (Tuition Required)',
+        self::FEE_TYPE_FREE => 'Free Student (No Tuition Required)',
+    ];
+
     protected $fillable = [
         'student_id',
         'name',
@@ -20,6 +29,7 @@ class Student extends Model
         'gender',
         'school_class_id',
         'status',
+        'fee_type',
         'registration_date',
     ];
 
@@ -58,6 +68,40 @@ class Student extends Model
         $next = $maxSuffix + 1;
 
         return 'XIR-' . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
+    }
+
+    public function isFree(): bool
+    {
+        return $this->fee_type === self::FEE_TYPE_FREE;
+    }
+
+    public function requiresTuition(): bool
+    {
+        return ! $this->isFree();
+    }
+
+    public function feeTypeLabel(): string
+    {
+        return self::FEE_TYPES[$this->fee_type] ?? ucfirst((string) $this->fee_type);
+    }
+
+    public function expectedTuitionAmount(): float
+    {
+        if ($this->isFree()) {
+            return 0.0;
+        }
+
+        return (float) ($this->schoolClass?->monthly_fee_amount ?? 0);
+    }
+
+    public function scopeRequiresTuition($query)
+    {
+        return $query->where('fee_type', self::FEE_TYPE_REGULAR);
+    }
+
+    public function scopeFree($query)
+    {
+        return $query->where('fee_type', self::FEE_TYPE_FREE);
     }
 
     public function schoolClass(): BelongsTo

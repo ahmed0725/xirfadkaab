@@ -1,16 +1,16 @@
 <x-app-layout>
     <x-slot name="header"><h2 class="text-xl font-semibold text-slate-800">Record Monthly Fee Payment</h2></x-slot>
     <div class="mx-auto max-w-3xl">
-        <form method="POST" action="{{ route('fees.store') }}" class="card grid gap-4">
+        <form method="POST" action="{{ route('fees.store') }}" class="card grid gap-4" x-data="{}" @student-selected.window="document.getElementById('expected_amount').value = $event.detail.monthly_fee">
             @csrf
-            <select name="student_id" class="rounded-lg border-slate-300 p-2 text-sm" required>
-                <option value="">Select student</option>
-                @foreach($students as $student)
-                    <option value="{{ $student->id }}" data-fee="{{ $student->schoolClass?->monthly_fee_amount ?? 0 }}">
-                        {{ $student->name }} ({{ $student->student_id }}) - {{ $student->schoolClass?->display_name }}
-                    </option>
-                @endforeach
-            </select>
+            <x-student-search-select
+                name="student_id"
+                label="Student"
+                :selected-id="old('student_id')"
+                tuition-only
+                input-class="rounded-lg border-slate-300 p-2 text-sm w-full"
+            />
+            <p class="text-xs text-slate-500 -mt-2">Only regular (tuition-paying) students appear in this search.</p>
             <div class="grid gap-3 md:grid-cols-2">
                 <select name="fee_month" class="rounded-lg border-slate-300 p-2 text-sm" required>
                     @foreach($months as $monthValue => $monthName)
@@ -31,14 +31,4 @@
             <button class="btn-primary w-fit">Save Payment</button>
         </form>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const studentSelect = document.querySelector('select[name="student_id"]');
-            const amountInput = document.getElementById('expected_amount');
-            studentSelect?.addEventListener('change', () => {
-                const selected = studentSelect.options[studentSelect.selectedIndex];
-                if (selected?.dataset?.fee) amountInput.value = selected.dataset.fee;
-            });
-        });
-    </script>
 </x-app-layout>

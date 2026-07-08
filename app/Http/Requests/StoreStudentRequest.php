@@ -29,6 +29,7 @@ class StoreStudentRequest extends FormRequest
             'gender' => ['required', 'in:male,female'],
             'school_class_id' => ['required', 'exists:school_classes,id'],
             'status' => ['required', 'in:active,inactive'],
+            'fee_type' => ['required', 'in:regular,free'],
             'registration_date' => ['required', 'date'],
         ];
     }

@@ -38,6 +38,15 @@
             </div>
         </form>
 
+        <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+            @foreach($overviewStats as $label => $value)
+                <div class="metric-card">
+                    <p class="text-sm text-slate-500">{{ $label }}</p>
+                    <p class="mt-1 text-2xl font-bold text-slate-800">{{ $value }}</p>
+                </div>
+            @endforeach
+        </div>
+
         <div class="card">
             <div class="flex items-center gap-3">
                 <x-application-logo class="h-10 w-auto" />

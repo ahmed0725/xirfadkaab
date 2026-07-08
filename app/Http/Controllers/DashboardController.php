@@ -28,7 +28,13 @@ class DashboardController extends Controller
 
         $stats = [
             'students' => Student::count(),
+            'active_students' => Student::where('status', 'active')->count(),
+            'inactive_students' => Student::where('status', 'inactive')->count(),
             'classes' => SchoolClass::count(),
+            'active_classes' => SchoolClass::where('is_active', true)->count(),
+            'inactive_classes' => SchoolClass::where('is_active', false)->count(),
+            'regular_students' => Student::where('fee_type', Student::FEE_TYPE_REGULAR)->count(),
+            'free_students' => Student::where('fee_type', Student::FEE_TYPE_FREE)->count(),
             'fees_collected' => Fee::sum('paid'),
             'pending_fees' => Fee::sum('balance'),
             'present_today' => Attendance::whereDate('date', $today)->where('status', 'present')->count(),

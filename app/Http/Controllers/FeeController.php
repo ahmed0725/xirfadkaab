@@ -53,17 +53,22 @@ class FeeController extends Controller
 
     public function create(): View
     {
-        $students = Student::with('schoolClass.courseType')->orderBy('name')->get();
         $months = $this->months();
 
-        return view('fees.create', compact('students', 'months'));
+        return view('fees.create', compact('months'));
     }
 
     public function store(Request $request): RedirectResponse
     {
         $student = Student::with('schoolClass.courseType')->find($request->input('student_id'));
+        if ($student?->isFree()) {
+            return back()
+                ->withErrors(['student_id' => 'This student is registered as a free student and does not require tuition payments.'])
+                ->withInput();
+        }
+
         if ($student && ! $request->boolean('custom_amount')) {
-            $request->merge(['amount' => (float) ($student->schoolClass?->monthly_fee_amount ?? 0)]);
+            $request->merge(['amount' => $student->expectedTuitionAmount()]);
         }
 
         $validated = $request->validate([
@@ -95,19 +100,27 @@ class FeeController extends Controller
     public function edit(Fee $fee): View
     {
         $fee->load('student.schoolClass');
-        $students = Student::with('schoolClass.courseType')->orderBy('name')->get();
         $months = $this->months();
-        $classDefault = (float) ($fee->student->schoolClass?->monthly_fee_amount ?? 0);
+        $classDefault = $fee->student->expectedTuitionAmount();
         $useCustomAmount = abs((float) $fee->amount - $classDefault) > 0.009;
+        $selectedLabel = $fee->student
+            ? "{$fee->student->name} ({$fee->student->student_id}) — ".($fee->student->schoolClass?->display_name ?? '-')
+            : null;
 
-        return view('fees.edit', compact('fee', 'students', 'months', 'useCustomAmount'));
+        return view('fees.edit', compact('fee', 'months', 'useCustomAmount', 'selectedLabel'));
     }
 
     public function update(Request $request, Fee $fee): RedirectResponse
     {
         $student = Student::with('schoolClass.courseType')->find($request->input('student_id'));
+        if ($student?->isFree()) {
+            return back()
+                ->withErrors(['student_id' => 'This student is registered as a free student and does not require tuition payments.'])
+                ->withInput();
+        }
+
         if ($student && ! $request->boolean('custom_amount')) {
-            $request->merge(['amount' => (float) ($student->schoolClass?->monthly_fee_amount ?? 0)]);
+            $request->merge(['amount' => $student->expectedTuitionAmount()]);
         }
 
         $validated = $request->validate([
@@ -176,6 +189,10 @@ class FeeController extends Controller
             $totalPending = 0;
 
             foreach ($class->students as $student) {
+                if ($student->isFree()) {
+                    continue;
+                }
+
                 $fee = $feesForClass->get($student->id);
                 if ($fee && (float) $fee->balance <= 0) {
                     $paidStudents->push($student);

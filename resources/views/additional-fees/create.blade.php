@@ -3,15 +3,11 @@
     <div class="mx-auto max-w-3xl">
         <form method="POST" action="{{ route('additional-fees.store') }}" class="card grid gap-4">
             @csrf
-            <div>
-                <x-input-label for="student_id" value="Student" />
-                <select id="student_id" name="student_id" class="form-control mt-1" required>
-                    <option value="">Select student</option>
-                    @foreach($students as $student)
-                        <option value="{{ $student->id }}" @selected(old('student_id') == $student->id)>{{ $student->name }} ({{ $student->student_id }}) — {{ $student->schoolClass?->display_name }}</option>
-                    @endforeach
-                </select>
-            </div>
+            <x-student-search-select
+                name="student_id"
+                label="Student"
+                :selected-id="old('student_id')"
+            />
             <div>
                 <x-input-label for="category" value="Category" />
                 <select id="category" name="category" class="form-control mt-1" required>

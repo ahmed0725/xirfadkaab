@@ -7,6 +7,14 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Xirfad Kaab documentation
+
+- **[User Guide](docs/USER_GUIDE.md)** — daily use for administrators, staff, and teachers.
+- **[System Manual](docs/SYSTEM_MANUAL.md)** — installation, deployment, roles, and maintenance.
+- **[Hostinger / hPanel deployment](deploy/hpanel/README.md)** — packaging and upload layout.
+
+---
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

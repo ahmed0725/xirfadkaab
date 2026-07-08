@@ -3,17 +3,47 @@
         <h2 class="text-xl font-semibold text-slate-800">{{ $systemSettings->school_name ?? 'Xirfad Kaab' }} Dashboard</h2>
     </x-slot>
     <div class="space-y-4">
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <div class="metric-card"><p class="text-sm text-slate-500">Total Students</p><p class="mt-1 text-3xl font-bold text-blue-700">{{ $stats['students'] }}</p></div>
-            <div class="metric-card"><p class="text-sm text-slate-500">Total Classes</p><p class="mt-1 text-3xl font-bold text-indigo-700">{{ $stats['classes'] }}</p></div>
-            <div class="metric-card"><p class="text-sm text-slate-500">Fees Collected</p><p class="mt-1 text-3xl font-bold text-emerald-600">${{ number_format($stats['fees_collected'], 2) }}</p></div>
-            <div class="metric-card"><p class="text-sm text-slate-500">Pending Fees</p><p class="mt-1 text-3xl font-bold text-rose-600">${{ number_format($stats['pending_fees'], 2) }}</p></div>
-            <div class="metric-card"><p class="text-sm text-slate-500">Today Attendance</p><p class="mt-1 text-sm text-slate-600">P: {{ $stats['present_today'] }} | A: {{ $stats['absent_today'] }} | L: {{ $stats['late_today'] }}</p></div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div class="metric-card">
+                <p class="text-sm text-slate-500">Active Students</p>
+                <p class="mt-1 text-3xl font-bold text-emerald-700">{{ $stats['active_students'] }}</p>
+                <p class="mt-1 text-xs text-slate-500">Inactive: {{ $stats['inactive_students'] }} | Total: {{ $stats['students'] }}</p>
+            </div>
+            <div class="metric-card">
+                <p class="text-sm text-slate-500">Active Classes</p>
+                <p class="mt-1 text-3xl font-bold text-indigo-700">{{ $stats['active_classes'] }}</p>
+                <p class="mt-1 text-xs text-slate-500">Inactive: {{ $stats['inactive_classes'] }} | Total: {{ $stats['classes'] }}</p>
+            </div>
+            <div class="metric-card">
+                <p class="text-sm text-slate-500">Fees Collected</p>
+                <p class="mt-1 text-3xl font-bold text-emerald-600">${{ number_format($stats['fees_collected'], 2) }}</p>
+            </div>
+            <div class="metric-card">
+                <p class="text-sm text-slate-500">Pending Fees</p>
+                <p class="mt-1 text-3xl font-bold text-rose-600">${{ number_format($stats['pending_fees'], 2) }}</p>
+            </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div class="metric-card"><p class="text-sm text-slate-500">Expenses this month</p><p class="mt-1 text-3xl font-bold text-slate-700">${{ number_format($stats['expenses_this_month'], 2) }}</p></div>
-            <div class="metric-card"><p class="text-sm text-slate-500">Unpaid payroll records</p><p class="mt-1 text-3xl font-bold text-amber-700">{{ $stats['payroll_pending_count'] }}</p></div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div class="metric-card">
+                <p class="text-sm text-slate-500">Regular Students</p>
+                <p class="mt-1 text-2xl font-bold text-indigo-700">{{ $stats['regular_students'] }}</p>
+                <p class="mt-1 text-xs text-slate-500">Tuition required</p>
+            </div>
+            <div class="metric-card">
+                <p class="text-sm text-slate-500">Free Students</p>
+                <p class="mt-1 text-2xl font-bold text-sky-700">{{ $stats['free_students'] }}</p>
+                <p class="mt-1 text-xs text-slate-500">No tuition required</p>
+            </div>
+            <div class="metric-card">
+                <p class="text-sm text-slate-500">Today Attendance</p>
+                <p class="mt-1 text-sm text-slate-600">P: {{ $stats['present_today'] }} | A: {{ $stats['absent_today'] }} | L: {{ $stats['late_today'] }}</p>
+            </div>
+            <div class="metric-card">
+                <p class="text-sm text-slate-500">Expenses this month</p>
+                <p class="mt-1 text-2xl font-bold text-slate-700">${{ number_format($stats['expenses_this_month'], 2) }}</p>
+                <p class="mt-1 text-xs text-slate-500">Unpaid payroll: {{ $stats['payroll_pending_count'] }}</p>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">

@@ -12,9 +12,7 @@ class AdditionalFeeController extends Controller
 {
     public function create(): View
     {
-        $students = Student::with('schoolClass.courseType')->orderBy('name')->get();
-
-        return view('additional-fees.create', compact('students'));
+        return view('additional-fees.create');
     }
 
     public function store(Request $request): RedirectResponse
@@ -42,9 +40,15 @@ class AdditionalFeeController extends Controller
 
     public function edit(AdditionalFeeCharge $additionalFeeCharge): View
     {
-        $students = Student::with('schoolClass.courseType')->orderBy('name')->get();
+        $additionalFeeCharge->load('student.schoolClass');
+        $selectedLabel = $additionalFeeCharge->student
+            ? "{$additionalFeeCharge->student->name} ({$additionalFeeCharge->student->student_id}) — ".($additionalFeeCharge->student->schoolClass?->display_name ?? '-')
+            : null;
 
-        return view('additional-fees.edit', ['additionalFee' => $additionalFeeCharge, 'students' => $students]);
+        return view('additional-fees.edit', [
+            'additionalFee' => $additionalFeeCharge,
+            'selectedLabel' => $selectedLabel,
+        ]);
     }
 
     public function update(Request $request, AdditionalFeeCharge $additionalFeeCharge): RedirectResponse

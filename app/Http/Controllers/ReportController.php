@@ -140,6 +140,19 @@ class ReportController extends Controller
             'periodLabel' => Carbon::createFromDate($year, $month, 1)->format('F Y'),
             'reportTable' => $reportPayload['table'],
             'reportSummary' => $reportPayload['summary'],
+            'overviewStats' => $this->overviewStats(),
+        ];
+    }
+
+    private function overviewStats(): array
+    {
+        return [
+            'Active Classes' => SchoolClass::where('is_active', true)->count(),
+            'Inactive Classes' => SchoolClass::where('is_active', false)->count(),
+            'Active Students' => Student::where('status', 'active')->count(),
+            'Inactive Students' => Student::where('status', 'inactive')->count(),
+            'Regular Students' => Student::where('fee_type', Student::FEE_TYPE_REGULAR)->count(),
+            'Free Students' => Student::where('fee_type', Student::FEE_TYPE_FREE)->count(),
         ];
     }
 
@@ -150,17 +163,32 @@ class ReportController extends Controller
         return match ($reportType) {
             'student_register' => [
                 'table' => [
-                    'columns' => ['Student ID', 'Name', 'Class', 'Status'],
-                    'rows' => $students->map(fn ($s) => [$s->student_id, $s->name, $s->schoolClass?->display_name ?? '-', ucfirst($s->status)])->values()->all(),
+                    'columns' => ['Student ID', 'Name', 'Class', 'Status', 'Fee Status'],
+                    'rows' => $students->map(fn ($s) => [
+                        $s->student_id,
+                        $s->name,
+                        $s->schoolClass?->display_name ?? '-',
+                        ucfirst($s->status),
+                        $s->isFree() ? 'Free (No Tuition)' : 'Regular (Tuition Required)',
+                    ])->values()->all(),
                 ],
-                'summary' => ['Total Students' => $students->count()],
+                'summary' => [
+                    'Total Students' => $students->count(),
+                    'Regular Students' => $students->where('fee_type', Student::FEE_TYPE_REGULAR)->count(),
+                    'Free Students' => $students->where('fee_type', Student::FEE_TYPE_FREE)->count(),
+                ],
             ],
             'student_status' => [
                 'table' => [
                     'columns' => ['Status', 'Count'],
                     'rows' => collect(['active', 'inactive'])->map(fn ($status) => [ucfirst($status), $students->where('status', $status)->count()])->all(),
                 ],
-                'summary' => ['Active' => $students->where('status', 'active')->count(), 'Inactive' => $students->where('status', 'inactive')->count()],
+                'summary' => [
+                    'Active' => $students->where('status', 'active')->count(),
+                    'Inactive' => $students->where('status', 'inactive')->count(),
+                    'Regular Students' => $students->where('fee_type', Student::FEE_TYPE_REGULAR)->count(),
+                    'Free Students' => $students->where('fee_type', Student::FEE_TYPE_FREE)->count(),
+                ],
             ],
             'attendance_summary' => [
                 'table' => [
@@ -193,20 +221,35 @@ class ReportController extends Controller
             ],
             'monthly_fee_collection' => [
                 'table' => [
-                    'columns' => ['Student', 'Class', 'Amount', 'Paid', 'Pending'],
-                    'rows' => $fees->map(fn ($f) => [$f->student?->name ?? '-', $f->student?->schoolClass?->display_name ?? '-', number_format((float) $f->amount, 2), number_format((float) $f->paid, 2), number_format((float) $f->balance, 2)])->values()->all(),
+                    'columns' => ['Student', 'Class', 'Fee Status', 'Amount', 'Paid', 'Pending'],
+                    'rows' => $fees->map(fn ($f) => [
+                        $f->student?->name ?? '-',
+                        $f->student?->schoolClass?->display_name ?? '-',
+                        $f->student?->isFree() ? 'Free' : 'Regular',
+                        number_format((float) $f->amount, 2),
+                        number_format((float) $f->paid, 2),
+                        number_format((float) $f->balance, 2),
+                    ])->values()->all(),
                 ],
-                'summary' => ['Period' => Carbon::createFromDate($year, $month, 1)->format('F Y'), 'Total Paid' => number_format((float) $fees->sum('paid'), 2), 'Total Pending' => number_format((float) $fees->sum('balance'), 2)],
+                'summary' => [
+                    'Period' => Carbon::createFromDate($year, $month, 1)->format('F Y'),
+                    'Total Paid' => number_format((float) $fees->sum('paid'), 2),
+                    'Total Pending' => number_format((float) $fees->sum('balance'), 2),
+                ],
             ],
             'paid_vs_unpaid' => [
                 'table' => [
                     'columns' => ['Category', 'Count'],
                     'rows' => [
-                        ['Paid Students', $students->filter(fn ($s) => (($feesByStudent[$s->id]->balance ?? 1) <= 0))->count()],
-                        ['Unpaid Students', $students->filter(fn ($s) => ! isset($feesByStudent[$s->id]) || (($feesByStudent[$s->id]->balance ?? 0) > 0))->count()],
+                        ['Paid Students', $students->filter(fn ($s) => $s->requiresTuition() && (($feesByStudent[$s->id]->balance ?? 1) <= 0))->count()],
+                        ['Unpaid Students', $students->filter(fn ($s) => $s->requiresTuition() && (! isset($feesByStudent[$s->id]) || (($feesByStudent[$s->id]->balance ?? 0) > 0)))->count()],
+                        ['Free Students (No Tuition)', $students->filter(fn ($s) => $s->isFree())->count()],
                     ],
                 ],
-                'summary' => ['Total Students' => $students->count()],
+                'summary' => [
+                    'Tuition Students' => $students->where('fee_type', Student::FEE_TYPE_REGULAR)->count(),
+                    'Free Students' => $students->where('fee_type', Student::FEE_TYPE_FREE)->count(),
+                ],
             ],
             'class_fee_summary' => [
                 'table' => [

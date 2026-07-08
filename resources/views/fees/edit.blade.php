@@ -4,11 +4,14 @@
         <form method="POST" action="{{ route('fees.update', $fee) }}" class="card grid gap-4">
             @csrf
             @method('PATCH')
-            <select name="student_id" class="rounded-lg border-slate-300 p-2 text-sm" required>
-                @foreach($students as $student)
-                    <option value="{{ $student->id }}" @selected(old('student_id', $fee->student_id) == $student->id)>{{ $student->name }} ({{ $student->student_id }})</option>
-                @endforeach
-            </select>
+            <x-student-search-select
+                name="student_id"
+                label="Student"
+                :selected-id="old('student_id', $fee->student_id)"
+                :selected-label="$selectedLabel"
+                tuition-only
+                input-class="rounded-lg border-slate-300 p-2 text-sm w-full"
+            />
             <div class="grid gap-3 md:grid-cols-2">
                 <select name="fee_month" class="rounded-lg border-slate-300 p-2 text-sm" required>
                     @for($m = 1; $m <= 12; $m++)

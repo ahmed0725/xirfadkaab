@@ -31,6 +31,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::middleware('role:admin,user')->group(function () {
+        Route::get('students/search', [StudentController::class, 'search'])->name('students.search');
         Route::resource('students', StudentController::class)->except(['destroy']);
         Route::get('classes/create', [ClassController::class, 'create'])->name('classes.create');
         Route::post('classes', [ClassController::class, 'store'])->name('classes.store');
