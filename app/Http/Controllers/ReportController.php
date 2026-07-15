@@ -19,24 +19,71 @@ use Illuminate\View\View;
 
 class ReportController extends Controller
 {
-    private const REPORT_TYPES = [
-        'student_register' => 'Student Register Report',
-        'student_status' => 'Student Active/Inactive Report',
-        'attendance_summary' => 'Attendance Summary Report',
-        'attendance_by_class' => 'Attendance by Class Report',
-        'attendance_by_student' => 'Attendance by Student Report',
-        'monthly_fee_collection' => 'Monthly Fee Collection Report',
-        'paid_vs_unpaid' => 'Paid vs Unpaid Students Report',
-        'class_fee_summary' => 'Class Fee Summary Report',
-        'pending_fees' => 'Pending Fees Report',
-        'revenue_trend' => 'Fee Revenue Trend Report',
-        'exam_results_by_class' => 'Exam Results by Class',
-        'student_exam_history' => 'Student Exam History',
-        'expenses_by_period' => 'Expenses by Period',
-        'expenses_by_category' => 'Expenses by Category Summary',
-        'inventory_available' => 'Inventory — Available Items',
-        'inventory_low_stock' => 'Inventory — Low Stock Items',
+    private const REPORT_GROUPS = [
+        'Students' => [
+            'student_register' => 'Student Register Report',
+            'student_status' => 'Student Active/Inactive Report',
+            'students_by_fee_type' => 'Free vs Regular Students Report',
+        ],
+        'Classes' => [
+            'classes_status' => 'Active/Inactive Classes Report',
+        ],
+        'Attendance' => [
+            'attendance_summary' => 'Attendance Summary Report',
+            'attendance_by_class' => 'Attendance by Class Report',
+            'attendance_by_student' => 'Attendance by Student Report',
+        ],
+        'Fees' => [
+            'monthly_fee_collection' => 'Monthly Fee Collection Report',
+            'paid_vs_unpaid' => 'Paid vs Unpaid Students Report',
+            'class_fee_summary' => 'Class Fee Summary Report',
+            'pending_fees' => 'Pending Fees Report',
+            'revenue_trend' => 'Fee Revenue Trend Report',
+        ],
+        'Exams' => [
+            'exam_results_by_class' => 'Exam Results by Class',
+            'student_exam_history' => 'Student Exam History',
+        ],
+        'Expenses' => [
+            'expenses_by_period' => 'Expenses by Period',
+            'expenses_by_category' => 'Expenses by Category Summary',
+            'expenses_by_staff' => 'Expenses by Individual (Staff)',
+        ],
+        'Inventory' => [
+            'inventory_available' => 'Inventory — Available Items',
+            'inventory_low_stock' => 'Inventory — Low Stock Items',
+        ],
     ];
+
+    /**
+     * Which filters are relevant per report type (drives the filter UI).
+     */
+    private const REPORT_FILTERS = [
+        'student_register' => ['class', 'student'],
+        'student_status' => ['class'],
+        'students_by_fee_type' => ['class'],
+        'classes_status' => [],
+        'attendance_summary' => ['month', 'year', 'class', 'student'],
+        'attendance_by_class' => ['month', 'year', 'class'],
+        'attendance_by_student' => ['month', 'year', 'class', 'student'],
+        'monthly_fee_collection' => ['month', 'year', 'class', 'student'],
+        'paid_vs_unpaid' => ['month', 'year', 'class'],
+        'class_fee_summary' => ['month', 'year', 'class'],
+        'pending_fees' => ['month', 'year', 'class', 'student'],
+        'revenue_trend' => ['year', 'class', 'student'],
+        'exam_results_by_class' => ['month', 'year', 'class'],
+        'student_exam_history' => ['month', 'year', 'class', 'student'],
+        'expenses_by_period' => ['month', 'year', 'expense_category'],
+        'expenses_by_category' => ['month', 'year', 'expense_category'],
+        'expenses_by_staff' => ['month', 'year', 'expense_category'],
+        'inventory_available' => [],
+        'inventory_low_stock' => [],
+    ];
+
+    private static function reportTypes(): array
+    {
+        return array_merge(...array_values(self::REPORT_GROUPS));
+    }
 
     public function index(Request $request): View
     {
@@ -65,8 +112,9 @@ class ReportController extends Controller
         $classId = $request->input('school_class_id');
         $studentId = $request->input('student_id');
         $expenseCategory = $request->input('expense_category');
+        $reportTypes = self::reportTypes();
         $selectedReportType = $request->input('report_type', 'monthly_fee_collection');
-        if (! array_key_exists($selectedReportType, self::REPORT_TYPES)) {
+        if (! array_key_exists($selectedReportType, $reportTypes)) {
             $selectedReportType = 'monthly_fee_collection';
         }
 
@@ -79,7 +127,8 @@ class ReportController extends Controller
 
         $fees = Fee::query()
             ->with(['student.schoolClass.courseType'])
-            ->where('fee_month', $month)
+            // The revenue trend report charts the whole year; all others are month-scoped.
+            ->when($selectedReportType !== 'revenue_trend', fn ($query) => $query->where('fee_month', $month))
             ->where('fee_year', $year)
             ->when($studentId, fn ($query) => $query->where('student_id', $studentId))
             ->when($classId, fn ($query) => $query->whereHas('student', fn ($sub) => $sub->where('school_class_id', $classId)))
@@ -131,9 +180,10 @@ class ReportController extends Controller
         $filters = compact('month', 'year', 'classId', 'studentId', 'expenseCategory');
 
         return [
-            'reportTypes' => self::REPORT_TYPES,
+            'reportGroups' => self::REPORT_GROUPS,
+            'reportFilterMap' => self::REPORT_FILTERS,
             'selectedReportType' => $selectedReportType,
-            'selectedReportLabel' => self::REPORT_TYPES[$selectedReportType],
+            'selectedReportLabel' => $reportTypes[$selectedReportType],
             'classes' => $classes,
             'students' => Student::orderBy('name')->get(),
             'filters' => $filters,
@@ -188,6 +238,48 @@ class ReportController extends Controller
                     'Inactive' => $students->where('status', 'inactive')->count(),
                     'Regular Students' => $students->where('fee_type', Student::FEE_TYPE_REGULAR)->count(),
                     'Free Students' => $students->where('fee_type', Student::FEE_TYPE_FREE)->count(),
+                ],
+            ],
+            'students_by_fee_type' => [
+                'table' => [
+                    'columns' => ['Fee Type', 'Student ID', 'Name', 'Class', 'Status'],
+                    'rows' => $students
+                        ->sortBy(fn ($s) => [$s->fee_type === Student::FEE_TYPE_FREE ? 0 : 1, $s->name])
+                        ->map(fn ($s) => [
+                            $s->isFree() ? 'Free (No Tuition)' : 'Regular (Tuition Required)',
+                            $s->student_id,
+                            $s->name,
+                            $s->schoolClass?->display_name ?? '-',
+                            ucfirst($s->status),
+                        ])->values()->all(),
+                ],
+                'summary' => [
+                    'Free Students' => $students->where('fee_type', Student::FEE_TYPE_FREE)->count(),
+                    'Regular Students' => $students->where('fee_type', Student::FEE_TYPE_REGULAR)->count(),
+                    'Total Students' => $students->count(),
+                ],
+            ],
+            'classes_status' => [
+                'table' => [
+                    'columns' => ['Class', 'Shift', 'Time', 'Students', 'Start Date', 'End Date', 'Status'],
+                    'rows' => $classes
+                        ->sortBy(fn ($c) => [$c->is_active ? 0 : 1, $c->class_name])
+                        ->map(fn ($c) => [
+                            $c->display_name,
+                            ucfirst((string) $c->shift) ?: '—',
+                            $c->formattedClassTime() ?: '—',
+                            (string) $c->students->count(),
+                            $c->start_date?->format('Y-m-d') ?? '—',
+                            $c->end_date?->format('Y-m-d') ?? '—',
+                            $c->is_active ? 'Active' : 'Inactive',
+                        ])->values()->all(),
+                ],
+                'summary' => [
+                    'Active Classes' => $classes->where('is_active', true)->count(),
+                    'Inactive Classes' => $classes->where('is_active', false)->count(),
+                    'Total Classes' => $classes->count(),
+                    'Students in Active Classes' => $classes->where('is_active', true)->sum(fn ($c) => $c->students->count()),
+                    'Students in Inactive Classes' => $classes->where('is_active', false)->sum(fn ($c) => $c->students->count()),
                 ],
             ],
             'attendance_summary' => [
@@ -382,6 +474,25 @@ class ReportController extends Controller
                 'summary' => [
                     'Period' => Carbon::createFromDate($year, $month, 1)->format('F Y'),
                     'Grand total' => number_format((float) $expenses->sum('amount'), 2),
+                ],
+            ],
+            'expenses_by_staff' => [
+                'table' => [
+                    'columns' => ['Individual / Staff', 'Transactions', 'Categories', 'Total Amount'],
+                    'rows' => $expenses
+                        ->groupBy(fn (Expense $e) => $e->staff_name ?: '— General (no individual)')
+                        ->sortByDesc(fn ($group) => $group->sum('amount'))
+                        ->map(fn ($group, $staff) => [
+                            $staff,
+                            (string) $group->count(),
+                            $group->pluck('category')->unique()->map(fn ($c) => Expense::CATEGORIES[$c] ?? $c)->implode(', '),
+                            number_format((float) $group->sum('amount'), 2),
+                        ])->values()->all(),
+                ],
+                'summary' => [
+                    'Period' => Carbon::createFromDate($year, $month, 1)->format('F Y'),
+                    'Individuals' => $expenses->pluck('staff_name')->filter()->unique()->count(),
+                    'Grand Total' => number_format((float) $expenses->sum('amount'), 2),
                 ],
             ],
             'inventory_available' => [

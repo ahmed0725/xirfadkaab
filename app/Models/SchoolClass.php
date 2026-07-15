@@ -47,6 +47,14 @@ class SchoolClass extends Model
                 $class->end_date = $start->copy()->addMonths((int) $class->duration_months);
             }
         });
+
+        // Deactivating a class deactivates its students (one-way: reactivating
+        // a class does not reactivate students automatically).
+        static::updated(function (SchoolClass $class): void {
+            if ($class->wasChanged('is_active') && ! $class->is_active) {
+                $class->students()->update(['status' => 'inactive']);
+            }
+        });
     }
 
     /**
