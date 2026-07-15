@@ -1,69 +1,84 @@
 <x-app-layout>
-    <x-slot name="header"><h2 class="text-xl font-semibold text-slate-800">Reports Center</h2></x-slot>
+    <x-slot name="header">
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{{ route('reports.index') }}" class="text-sm font-medium text-blue-600 hover:text-blue-800">&larr; All reports</a>
+            <span class="text-slate-300">/</span>
+            <h2 class="text-xl font-semibold text-slate-800">{{ $currentGroup }} Reports</h2>
+        </div>
+    </x-slot>
     <div class="space-y-4">
-        <form
-            method="GET"
-            class="card space-y-4"
-            x-data="{ type: @js($selectedReportType), filterMap: @js($reportFilterMap), needs(f) { return (this.filterMap[this.type] ?? []).includes(f); } }"
-        >
-            <div class="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-                <div class="md:col-span-2 xl:col-span-2">
-                    <label for="report_type" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Report type</label>
-                    <select id="report_type" name="report_type" x-model="type" class="w-full rounded-lg border-slate-300 p-2 text-sm">
-                        @foreach($reportGroups as $group => $types)
-                            <optgroup label="{{ $group }}">
-                                @foreach($types as $type => $label)
-                                    <option value="{{ $type }}" @selected($selectedReportType === $type)>{{ $label }}</option>
+        <div class="flex flex-wrap gap-2">
+            @foreach($groupReports as $type => $label)
+                <a href="{{ route('reports.index', array_merge(request()->except('report_type'), ['report_type' => $type])) }}"
+                   class="rounded-full px-3 py-1.5 text-sm font-medium transition {{ $selectedReportType === $type ? 'bg-blue-600 text-white shadow-sm' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50' }}">
+                    {{ $label }}
+                </a>
+            @endforeach
+        </div>
+
+        <form method="GET" class="card space-y-4">
+            <input type="hidden" name="report_type" value="{{ $selectedReportType }}">
+            @if(count($activeFilters) > 0)
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    @if(in_array('month', $activeFilters))
+                        <div>
+                            <label for="filter_month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Month</label>
+                            <select id="filter_month" name="month" class="w-full rounded-lg border-slate-300 p-2 text-sm">
+                                @for($m = 1; $m <= 12; $m++)
+                                    <option value="{{ $m }}" @selected((int)$filters['month'] === $m)>{{ \Carbon\Carbon::create()->month($m)->format('F') }}</option>
+                                @endfor
+                            </select>
+                        </div>
+                    @endif
+                    @if(in_array('year', $activeFilters))
+                        <div>
+                            <label for="filter_year" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</label>
+                            <input id="filter_year" type="number" name="year" value="{{ $filters['year'] }}" class="w-full rounded-lg border-slate-300 p-2 text-sm" min="2000" max="2100">
+                        </div>
+                    @endif
+                    @if(in_array('class', $activeFilters))
+                        <div>
+                            <label for="filter_class" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Class</label>
+                            <select id="filter_class" name="school_class_id" class="w-full rounded-lg border-slate-300 p-2 text-sm">
+                                <option value="">All classes</option>
+                                @foreach($classes as $class)
+                                    <option value="{{ $class->id }}" @selected((string)$filters['classId'] === (string)$class->id)>{{ $class->display_name }}</option>
                                 @endforeach
-                            </optgroup>
-                        @endforeach
-                    </select>
+                            </select>
+                        </div>
+                    @endif
+                    @if(in_array('student', $activeFilters))
+                        <div>
+                            <label for="filter_student" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Student</label>
+                            <select id="filter_student" name="student_id" class="w-full rounded-lg border-slate-300 p-2 text-sm">
+                                <option value="">All students</option>
+                                @foreach($students as $student)
+                                    <option value="{{ $student->id }}" @selected((string)$filters['studentId'] === (string)$student->id)>{{ $student->name }} ({{ $student->student_id }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
+                    @if(in_array('expense_category', $activeFilters))
+                        <div>
+                            <label for="filter_expense_category" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Expense type</label>
+                            <select id="filter_expense_category" name="expense_category" class="w-full rounded-lg border-slate-300 p-2 text-sm">
+                                <option value="">All expense types</option>
+                                @foreach(\App\Models\Expense::CATEGORIES as $value => $label)
+                                    <option value="{{ $value }}" @selected(($filters['expenseCategory'] ?? '') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
                 </div>
-                <div x-show="needs('month')" x-cloak>
-                    <label for="filter_month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Month</label>
-                    <select id="filter_month" name="month" class="w-full rounded-lg border-slate-300 p-2 text-sm">
-                        @for($m = 1; $m <= 12; $m++)
-                            <option value="{{ $m }}" @selected((int)$filters['month'] === $m)>{{ \Carbon\Carbon::create()->month($m)->format('F') }}</option>
-                        @endfor
-                    </select>
-                </div>
-                <div x-show="needs('year')" x-cloak>
-                    <label for="filter_year" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</label>
-                    <input id="filter_year" type="number" name="year" value="{{ $filters['year'] }}" class="w-full rounded-lg border-slate-300 p-2 text-sm" min="2000" max="2100">
-                </div>
-                <div x-show="needs('class')" x-cloak>
-                    <label for="filter_class" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Class</label>
-                    <select id="filter_class" name="school_class_id" class="w-full rounded-lg border-slate-300 p-2 text-sm">
-                        <option value="">All classes</option>
-                        @foreach($classes as $class)
-                            <option value="{{ $class->id }}" @selected((string)$filters['classId'] === (string)$class->id)>{{ $class->display_name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div x-show="needs('student')" x-cloak>
-                    <label for="filter_student" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Student</label>
-                    <select id="filter_student" name="student_id" class="w-full rounded-lg border-slate-300 p-2 text-sm">
-                        <option value="">All students</option>
-                        @foreach($students as $student)
-                            <option value="{{ $student->id }}" @selected((string)$filters['studentId'] === (string)$student->id)>{{ $student->name }} ({{ $student->student_id }})</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div x-show="needs('expense_category')" x-cloak>
-                    <label for="filter_expense_category" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Expense type</label>
-                    <select id="filter_expense_category" name="expense_category" class="w-full rounded-lg border-slate-300 p-2 text-sm">
-                        <option value="">All expense types</option>
-                        @foreach(\App\Models\Expense::CATEGORIES as $value => $label)
-                            <option value="{{ $value }}" @selected(($filters['expenseCategory'] ?? '') === $value)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
+            @else
+                <p class="text-sm text-slate-500">This report has no filters — it always covers all records.</p>
+            @endif
             <div class="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                <button class="btn-primary">Run Report</button>
+                @if(count($activeFilters) > 0)
+                    <button class="btn-primary">Run Report</button>
+                @endif
                 <a href="{{ route('reports.print', request()->query()) }}" target="_blank" class="btn-secondary">Print</a>
                 <a href="{{ route('reports.pdf', request()->query()) }}" class="btn-secondary">PDF</a>
-                <p class="ml-auto text-xs text-slate-400" x-show="(filterMap[type] ?? []).length === 0" x-cloak>This report has no filters — it always covers all records.</p>
             </div>
         </form>
 

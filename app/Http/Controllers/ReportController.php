@@ -80,6 +80,16 @@ class ReportController extends Controller
         'inventory_low_stock' => [],
     ];
 
+    private const GROUP_DESCRIPTIONS = [
+        'Students' => 'Enrollment register, active/inactive status, and free vs regular breakdowns.',
+        'Classes' => 'Class list with schedules, enrollment counts, and active/inactive status.',
+        'Attendance' => 'Attendance totals and breakdowns by class or by student.',
+        'Fees' => 'Tuition collection, paid vs unpaid, pending balances, and revenue trends.',
+        'Exams' => 'Exam results by class and per-student exam history.',
+        'Expenses' => 'Spending by period, by category, and by individual staff member.',
+        'Inventory' => 'Available stock and low-stock alerts.',
+    ];
+
     private static function reportTypes(): array
     {
         return array_merge(...array_values(self::REPORT_GROUPS));
@@ -87,6 +97,15 @@ class ReportController extends Controller
 
     public function index(Request $request): View
     {
+        // No report selected yet: show the hub with one card per module.
+        if (! $request->filled('report_type')) {
+            return view('reports.hub', [
+                'reportGroups' => self::REPORT_GROUPS,
+                'groupDescriptions' => self::GROUP_DESCRIPTIONS,
+                'overviewStats' => $this->overviewStats(),
+            ]);
+        }
+
         $data = $this->buildReportData($request);
 
         return view('reports.index', $data);
@@ -179,9 +198,18 @@ class ReportController extends Controller
         $reportPayload = $this->generateReportPayload($selectedReportType, $students, $fees, $attendance, $classes, $month, $year, $exams, $examResults, $expenses, $inventoryItems);
         $filters = compact('month', 'year', 'classId', 'studentId', 'expenseCategory');
 
+        $currentGroup = 'Fees';
+        foreach (self::REPORT_GROUPS as $group => $types) {
+            if (array_key_exists($selectedReportType, $types)) {
+                $currentGroup = $group;
+                break;
+            }
+        }
+
         return [
-            'reportGroups' => self::REPORT_GROUPS,
-            'reportFilterMap' => self::REPORT_FILTERS,
+            'currentGroup' => $currentGroup,
+            'groupReports' => self::REPORT_GROUPS[$currentGroup],
+            'activeFilters' => self::REPORT_FILTERS[$selectedReportType] ?? [],
             'selectedReportType' => $selectedReportType,
             'selectedReportLabel' => $reportTypes[$selectedReportType],
             'classes' => $classes,
