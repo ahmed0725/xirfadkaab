@@ -59,10 +59,10 @@ class ReportController extends Controller
      * Which filters are relevant per report type (drives the filter UI).
      */
     private const REPORT_FILTERS = [
-        'student_register' => ['class', 'student'],
-        'student_status' => ['class'],
-        'students_by_fee_type' => ['class'],
-        'classes_status' => [],
+        'student_register' => ['class', 'student', 'status', 'fee_type'],
+        'student_status' => ['class', 'status'],
+        'students_by_fee_type' => ['class', 'fee_type'],
+        'classes_status' => ['class_status'],
         'attendance_summary' => ['date_range', 'class', 'student'],
         'attendance_by_class' => ['date_range', 'class'],
         'attendance_by_student' => ['date_range', 'class', 'student'],
@@ -139,6 +139,21 @@ class ReportController extends Controller
 
         $activeFilters = self::REPORT_FILTERS[$selectedReportType] ?? [];
 
+        // Only honor a filter when the selected report actually offers it, so
+        // stale query params can't invisibly narrow an unrelated report.
+        $statusFilter = in_array('status', $activeFilters, true) ? $request->input('status') : null;
+        if (! in_array($statusFilter, ['active', 'inactive'], true)) {
+            $statusFilter = null;
+        }
+        $feeTypeFilter = in_array('fee_type', $activeFilters, true) ? $request->input('fee_type') : null;
+        if (! in_array($feeTypeFilter, [Student::FEE_TYPE_REGULAR, Student::FEE_TYPE_FREE], true)) {
+            $feeTypeFilter = null;
+        }
+        $classStatusFilter = in_array('class_status', $activeFilters, true) ? $request->input('class_status') : null;
+        if (! in_array($classStatusFilter, ['active', 'inactive'], true)) {
+            $classStatusFilter = null;
+        }
+
         // Date-range reports (attendance, exams, expenses) filter by an
         // explicit from/to date; fee reports keep a monthly fee period.
         $fromDate = $this->parseDate($request->input('from_date')) ?? now()->startOfMonth();
@@ -149,14 +164,18 @@ class ReportController extends Controller
         $fromDate = $fromDate->startOfDay();
         $toDate = $toDate->endOfDay();
 
-        $periodLabel = in_array('date_range', $activeFilters, true)
-            ? $fromDate->format('M j, Y').' — '.$toDate->format('M j, Y')
-            : Carbon::createFromDate($year, $month, 1)->format('F Y');
+        $periodLabel = match (true) {
+            in_array('date_range', $activeFilters, true) => $fromDate->format('M j, Y').' — '.$toDate->format('M j, Y'),
+            in_array('month', $activeFilters, true) || in_array('year', $activeFilters, true) => Carbon::createFromDate($year, $month, 1)->format('F Y'),
+            default => 'As of '.now()->format('M j, Y'),
+        };
 
         $students = Student::query()
             ->with('schoolClass.courseType')
             ->when($classId, fn ($query) => $query->where('school_class_id', $classId))
             ->when($studentId, fn ($query) => $query->whereKey($studentId))
+            ->when($statusFilter, fn ($query) => $query->where('status', $statusFilter))
+            ->when($feeTypeFilter, fn ($query) => $query->where('fee_type', $feeTypeFilter))
             ->orderBy('name')
             ->get();
 
@@ -178,6 +197,7 @@ class ReportController extends Controller
 
         $classes = SchoolClass::query()
             ->with(['students', 'courseType'])
+            ->when($classStatusFilter, fn ($query) => $query->where('is_active', $classStatusFilter === 'active'))
             ->orderBy('class_name')
             ->orderBy('class_time')
             ->get();
@@ -211,6 +231,9 @@ class ReportController extends Controller
         $filters = array_merge(compact('month', 'year', 'classId', 'studentId', 'expenseCategory'), [
             'fromDate' => $fromDate->toDateString(),
             'toDate' => $toDate->toDateString(),
+            'status' => $statusFilter,
+            'feeType' => $feeTypeFilter,
+            'classStatus' => $classStatusFilter,
         ]);
 
         $currentGroup = 'Fees';
@@ -249,15 +272,36 @@ class ReportController extends Controller
         }
     }
 
+    /**
+     * Hub tiles: each count links to the report listing exactly those records.
+     */
     private function overviewStats(): array
     {
         return [
-            'Active Classes' => SchoolClass::where('is_active', true)->count(),
-            'Inactive Classes' => SchoolClass::where('is_active', false)->count(),
-            'Active Students' => Student::where('status', 'active')->count(),
-            'Inactive Students' => Student::where('status', 'inactive')->count(),
-            'Regular Students' => Student::where('fee_type', Student::FEE_TYPE_REGULAR)->count(),
-            'Free Students' => Student::where('fee_type', Student::FEE_TYPE_FREE)->count(),
+            'Active Classes' => [
+                'value' => SchoolClass::where('is_active', true)->count(),
+                'url' => route('reports.index', ['report_type' => 'classes_status', 'class_status' => 'active']),
+            ],
+            'Inactive Classes' => [
+                'value' => SchoolClass::where('is_active', false)->count(),
+                'url' => route('reports.index', ['report_type' => 'classes_status', 'class_status' => 'inactive']),
+            ],
+            'Active Students' => [
+                'value' => Student::where('status', 'active')->count(),
+                'url' => route('reports.index', ['report_type' => 'student_status', 'status' => 'active']),
+            ],
+            'Inactive Students' => [
+                'value' => Student::where('status', 'inactive')->count(),
+                'url' => route('reports.index', ['report_type' => 'student_status', 'status' => 'inactive']),
+            ],
+            'Regular Students' => [
+                'value' => Student::where('fee_type', Student::FEE_TYPE_REGULAR)->count(),
+                'url' => route('reports.index', ['report_type' => 'students_by_fee_type', 'fee_type' => Student::FEE_TYPE_REGULAR]),
+            ],
+            'Free Students' => [
+                'value' => Student::where('fee_type', Student::FEE_TYPE_FREE)->count(),
+                'url' => route('reports.index', ['report_type' => 'students_by_fee_type', 'fee_type' => Student::FEE_TYPE_FREE]),
+            ],
         ];
     }
 
@@ -285,14 +329,21 @@ class ReportController extends Controller
             ],
             'student_status' => [
                 'table' => [
-                    'columns' => ['Status', 'Count'],
-                    'rows' => collect(['active', 'inactive'])->map(fn ($status) => [ucfirst($status), $students->where('status', $status)->count()])->all(),
+                    'columns' => ['Status', 'Student ID', 'Name', 'Class', 'Fee Type'],
+                    'rows' => $students
+                        ->sortBy(fn ($s) => [$s->status, $s->name])
+                        ->map(fn ($s) => [
+                            ucfirst($s->status),
+                            $s->student_id,
+                            $s->name,
+                            $s->schoolClass?->display_name ?? '-',
+                            $s->isFree() ? 'Free' : 'Regular',
+                        ])->values()->all(),
                 ],
                 'summary' => [
                     'Active' => $students->where('status', 'active')->count(),
                     'Inactive' => $students->where('status', 'inactive')->count(),
-                    'Regular Students' => $students->where('fee_type', Student::FEE_TYPE_REGULAR)->count(),
-                    'Free Students' => $students->where('fee_type', Student::FEE_TYPE_FREE)->count(),
+                    'Students Listed' => $students->count(),
                 ],
             ],
             'students_by_fee_type' => [

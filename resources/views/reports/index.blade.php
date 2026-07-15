@@ -68,6 +68,36 @@
                             </select>
                         </div>
                     @endif
+                    @if(in_array('status', $activeFilters))
+                        <div>
+                            <label for="filter_status" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Student status</label>
+                            <select id="filter_status" name="status" class="w-full rounded-lg border-slate-300 p-2 text-sm">
+                                <option value="">All statuses</option>
+                                <option value="active" @selected(($filters['status'] ?? '') === 'active')>Active only</option>
+                                <option value="inactive" @selected(($filters['status'] ?? '') === 'inactive')>Inactive only</option>
+                            </select>
+                        </div>
+                    @endif
+                    @if(in_array('fee_type', $activeFilters))
+                        <div>
+                            <label for="filter_fee_type" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Fee type</label>
+                            <select id="filter_fee_type" name="fee_type" class="w-full rounded-lg border-slate-300 p-2 text-sm">
+                                <option value="">All students</option>
+                                <option value="regular" @selected(($filters['feeType'] ?? '') === 'regular')>Regular only (tuition required)</option>
+                                <option value="free" @selected(($filters['feeType'] ?? '') === 'free')>Free only (no tuition)</option>
+                            </select>
+                        </div>
+                    @endif
+                    @if(in_array('class_status', $activeFilters))
+                        <div>
+                            <label for="filter_class_status" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Class status</label>
+                            <select id="filter_class_status" name="class_status" class="w-full rounded-lg border-slate-300 p-2 text-sm">
+                                <option value="">All classes</option>
+                                <option value="active" @selected(($filters['classStatus'] ?? '') === 'active')>Active only</option>
+                                <option value="inactive" @selected(($filters['classStatus'] ?? '') === 'inactive')>Inactive only</option>
+                            </select>
+                        </div>
+                    @endif
                     @if(in_array('expense_category', $activeFilters))
                         <div>
                             <label for="filter_expense_category" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Expense type</label>

@@ -2,11 +2,12 @@
     <x-slot name="header"><h2 class="text-xl font-semibold text-slate-800">Reports Center</h2></x-slot>
     <div class="space-y-4">
         <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-            @foreach($overviewStats as $label => $value)
-                <div class="metric-card">
+            @foreach($overviewStats as $label => $stat)
+                <a href="{{ $stat['url'] }}" class="metric-card block transition hover:ring-2 hover:ring-blue-300">
                     <p class="text-sm text-slate-500">{{ $label }}</p>
-                    <p class="mt-1 text-2xl font-bold text-slate-800">{{ $value }}</p>
-                </div>
+                    <p class="mt-1 text-2xl font-bold text-slate-800">{{ $stat['value'] }}</p>
+                    <p class="mt-1 text-xs text-blue-600">View list &rarr;</p>
+                </a>
             @endforeach
         </div>
 
