@@ -63,19 +63,19 @@ class ReportController extends Controller
         'student_status' => ['class'],
         'students_by_fee_type' => ['class'],
         'classes_status' => [],
-        'attendance_summary' => ['month', 'year', 'class', 'student'],
-        'attendance_by_class' => ['month', 'year', 'class'],
-        'attendance_by_student' => ['month', 'year', 'class', 'student'],
+        'attendance_summary' => ['date_range', 'class', 'student'],
+        'attendance_by_class' => ['date_range', 'class'],
+        'attendance_by_student' => ['date_range', 'class', 'student'],
         'monthly_fee_collection' => ['month', 'year', 'class', 'student'],
         'paid_vs_unpaid' => ['month', 'year', 'class'],
         'class_fee_summary' => ['month', 'year', 'class'],
         'pending_fees' => ['month', 'year', 'class', 'student'],
         'revenue_trend' => ['year', 'class', 'student'],
-        'exam_results_by_class' => ['month', 'year', 'class'],
-        'student_exam_history' => ['month', 'year', 'class', 'student'],
-        'expenses_by_period' => ['month', 'year', 'expense_category'],
-        'expenses_by_category' => ['month', 'year', 'expense_category'],
-        'expenses_by_staff' => ['month', 'year', 'expense_category'],
+        'exam_results_by_class' => ['date_range', 'class'],
+        'student_exam_history' => ['date_range', 'class', 'student'],
+        'expenses_by_period' => ['date_range', 'expense_category'],
+        'expenses_by_category' => ['date_range', 'expense_category'],
+        'expenses_by_staff' => ['date_range', 'expense_category'],
         'inventory_available' => [],
         'inventory_low_stock' => [],
     ];
@@ -137,6 +137,22 @@ class ReportController extends Controller
             $selectedReportType = 'monthly_fee_collection';
         }
 
+        $activeFilters = self::REPORT_FILTERS[$selectedReportType] ?? [];
+
+        // Date-range reports (attendance, exams, expenses) filter by an
+        // explicit from/to date; fee reports keep a monthly fee period.
+        $fromDate = $this->parseDate($request->input('from_date')) ?? now()->startOfMonth();
+        $toDate = $this->parseDate($request->input('to_date')) ?? now()->endOfMonth();
+        if ($toDate->lt($fromDate)) {
+            [$fromDate, $toDate] = [$toDate, $fromDate];
+        }
+        $fromDate = $fromDate->startOfDay();
+        $toDate = $toDate->endOfDay();
+
+        $periodLabel = in_array('date_range', $activeFilters, true)
+            ? $fromDate->format('M j, Y').' — '.$toDate->format('M j, Y')
+            : Carbon::createFromDate($year, $month, 1)->format('F Y');
+
         $students = Student::query()
             ->with('schoolClass.courseType')
             ->when($classId, fn ($query) => $query->where('school_class_id', $classId))
@@ -155,8 +171,7 @@ class ReportController extends Controller
 
         $attendance = Attendance::query()
             ->with(['student.schoolClass.courseType', 'schoolClass.courseType'])
-            ->whereMonth('date', $month)
-            ->whereYear('date', $year)
+            ->whereBetween('date', [$fromDate->toDateString(), $toDate->toDateString()])
             ->when($classId, fn ($query) => $query->where('school_class_id', $classId))
             ->when($studentId, fn ($query) => $query->where('student_id', $studentId))
             ->get();
@@ -169,17 +184,15 @@ class ReportController extends Controller
 
         $exams = Exam::query()
             ->with(['schoolClass.courseType', 'subject', 'examResults'])
-            ->whereMonth('exam_date', $month)
-            ->whereYear('exam_date', $year)
+            ->whereBetween('exam_date', [$fromDate->toDateString(), $toDate->toDateString()])
             ->when($classId, fn ($query) => $query->where('school_class_id', $classId))
             ->orderByDesc('exam_date')
             ->get();
 
         $examResults = ExamResult::query()
             ->with(['student', 'exam.schoolClass.courseType', 'exam.subject'])
-            ->whereHas('exam', function ($query) use ($month, $year) {
-                $query->whereMonth('exam_date', $month)
-                    ->whereYear('exam_date', $year);
+            ->whereHas('exam', function ($query) use ($fromDate, $toDate) {
+                $query->whereBetween('exam_date', [$fromDate->toDateString(), $toDate->toDateString()]);
             })
             ->when($studentId, fn ($query) => $query->where('student_id', $studentId))
             ->when($classId, fn ($query) => $query->whereHas('student', fn ($sub) => $sub->where('school_class_id', $classId)))
@@ -187,16 +200,18 @@ class ReportController extends Controller
             ->get();
 
         $expenses = Expense::query()
-            ->whereMonth('expense_date', $month)
-            ->whereYear('expense_date', $year)
+            ->whereBetween('expense_date', [$fromDate->toDateString(), $toDate->toDateString()])
             ->when($expenseCategory, fn ($query) => $query->where('category', $expenseCategory))
             ->orderByDesc('expense_date')
             ->get();
 
         $inventoryItems = InventoryItem::query()->orderBy('item_name')->get();
 
-        $reportPayload = $this->generateReportPayload($selectedReportType, $students, $fees, $attendance, $classes, $month, $year, $exams, $examResults, $expenses, $inventoryItems);
-        $filters = compact('month', 'year', 'classId', 'studentId', 'expenseCategory');
+        $reportPayload = $this->generateReportPayload($selectedReportType, $students, $fees, $attendance, $classes, $month, $year, $exams, $examResults, $expenses, $inventoryItems, $periodLabel);
+        $filters = array_merge(compact('month', 'year', 'classId', 'studentId', 'expenseCategory'), [
+            'fromDate' => $fromDate->toDateString(),
+            'toDate' => $toDate->toDateString(),
+        ]);
 
         $currentGroup = 'Fees';
         foreach (self::REPORT_GROUPS as $group => $types) {
@@ -209,17 +224,29 @@ class ReportController extends Controller
         return [
             'currentGroup' => $currentGroup,
             'groupReports' => self::REPORT_GROUPS[$currentGroup],
-            'activeFilters' => self::REPORT_FILTERS[$selectedReportType] ?? [],
+            'activeFilters' => $activeFilters,
             'selectedReportType' => $selectedReportType,
             'selectedReportLabel' => $reportTypes[$selectedReportType],
             'classes' => $classes,
             'students' => Student::orderBy('name')->get(),
             'filters' => $filters,
-            'periodLabel' => Carbon::createFromDate($year, $month, 1)->format('F Y'),
+            'periodLabel' => $periodLabel,
             'reportTable' => $reportPayload['table'],
             'reportSummary' => $reportPayload['summary'],
-            'overviewStats' => $this->overviewStats(),
         ];
+    }
+
+    private function parseDate(?string $value): ?Carbon
+    {
+        if (! $value) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function overviewStats(): array
@@ -234,7 +261,7 @@ class ReportController extends Controller
         ];
     }
 
-    private function generateReportPayload(string $reportType, Collection $students, Collection $fees, Collection $attendance, Collection $classes, int $month, int $year, Collection $exams, Collection $examResults, Collection $expenses, Collection $inventoryItems): array
+    private function generateReportPayload(string $reportType, Collection $students, Collection $fees, Collection $attendance, Collection $classes, int $month, int $year, Collection $exams, Collection $examResults, Collection $expenses, Collection $inventoryItems, string $periodLabel): array
     {
         $feesByStudent = $fees->keyBy('student_id');
 
@@ -352,7 +379,7 @@ class ReportController extends Controller
                     ])->values()->all(),
                 ],
                 'summary' => [
-                    'Period' => Carbon::createFromDate($year, $month, 1)->format('F Y'),
+                    'Period' => $periodLabel,
                     'Total Paid' => number_format((float) $fees->sum('paid'), 2),
                     'Total Pending' => number_format((float) $fees->sum('balance'), 2),
                 ],
@@ -483,7 +510,7 @@ class ReportController extends Controller
                     })->values()->all(),
                 ],
                 'summary' => [
-                    'Period' => Carbon::createFromDate($year, $month, 1)->format('F Y'),
+                    'Period' => $periodLabel,
                     'Total' => number_format((float) $expenses->sum('amount'), 2),
                     'Count' => $expenses->count(),
                 ],
@@ -500,7 +527,7 @@ class ReportController extends Controller
                     })->values()->all(),
                 ],
                 'summary' => [
-                    'Period' => Carbon::createFromDate($year, $month, 1)->format('F Y'),
+                    'Period' => $periodLabel,
                     'Grand total' => number_format((float) $expenses->sum('amount'), 2),
                 ],
             ],
@@ -518,7 +545,7 @@ class ReportController extends Controller
                         ])->values()->all(),
                 ],
                 'summary' => [
-                    'Period' => Carbon::createFromDate($year, $month, 1)->format('F Y'),
+                    'Period' => $periodLabel,
                     'Individuals' => $expenses->pluck('staff_name')->filter()->unique()->count(),
                     'Grand Total' => number_format((float) $expenses->sum('amount'), 2),
                 ],

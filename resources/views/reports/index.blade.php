@@ -20,9 +20,19 @@
             <input type="hidden" name="report_type" value="{{ $selectedReportType }}">
             @if(count($activeFilters) > 0)
                 <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    @if(in_array('date_range', $activeFilters))
+                        <div>
+                            <label for="filter_from_date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">From date</label>
+                            <input id="filter_from_date" type="date" name="from_date" value="{{ $filters['fromDate'] }}" class="w-full rounded-lg border-slate-300 p-2 text-sm">
+                        </div>
+                        <div>
+                            <label for="filter_to_date" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">To date</label>
+                            <input id="filter_to_date" type="date" name="to_date" value="{{ $filters['toDate'] }}" class="w-full rounded-lg border-slate-300 p-2 text-sm">
+                        </div>
+                    @endif
                     @if(in_array('month', $activeFilters))
                         <div>
-                            <label for="filter_month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Month</label>
+                            <label for="filter_month" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Fee month</label>
                             <select id="filter_month" name="month" class="w-full rounded-lg border-slate-300 p-2 text-sm">
                                 @for($m = 1; $m <= 12; $m++)
                                     <option value="{{ $m }}" @selected((int)$filters['month'] === $m)>{{ \Carbon\Carbon::create()->month($m)->format('F') }}</option>
@@ -32,7 +42,7 @@
                     @endif
                     @if(in_array('year', $activeFilters))
                         <div>
-                            <label for="filter_year" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Year</label>
+                            <label for="filter_year" class="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Fee year</label>
                             <input id="filter_year" type="number" name="year" value="{{ $filters['year'] }}" class="w-full rounded-lg border-slate-300 p-2 text-sm" min="2000" max="2100">
                         </div>
                     @endif
@@ -81,15 +91,6 @@
                 <a href="{{ route('reports.pdf', request()->query()) }}" class="btn-secondary">PDF</a>
             </div>
         </form>
-
-        <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-            @foreach($overviewStats as $label => $value)
-                <div class="metric-card">
-                    <p class="text-sm text-slate-500">{{ $label }}</p>
-                    <p class="mt-1 text-2xl font-bold text-slate-800">{{ $value }}</p>
-                </div>
-            @endforeach
-        </div>
 
         <div class="card">
             <div class="flex items-center gap-3">

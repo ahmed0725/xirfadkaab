@@ -37,15 +37,6 @@
         </div>
 
         <div class="card">
-            <h3 class="mb-2 font-semibold">Overview</h3>
-            <ul class="grid grid-cols-2 gap-1 text-sm sm:grid-cols-4">
-                @foreach($overviewStats as $label => $value)
-                    <li class="flex justify-between gap-2"><span>{{ $label }}</span><strong>{{ $value }}</strong></li>
-                @endforeach
-            </ul>
-        </div>
-
-        <div class="card">
             <div class="table-shell overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
