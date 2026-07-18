@@ -19,6 +19,7 @@ class StoreInventoryItemRequest extends FormRequest
             'item_name' => ['required', 'string', 'max:255'],
             'category' => ['required', 'string', 'max:64'],
             'quantity' => ['required', 'integer', 'min:0'],
+            'unit_price' => ['nullable', 'numeric', 'min:0'],
             'purchase_date' => ['nullable', 'date'],
             'condition' => ['required', 'string', Rule::in(array_keys(InventoryItem::CONDITIONS))],
             'notes' => ['nullable', 'string', 'max:5000'],

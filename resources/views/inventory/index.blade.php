@@ -29,6 +29,8 @@
                         <th class="p-3">Item</th>
                         <th class="p-3">Category</th>
                         <th class="p-3">Qty</th>
+                        <th class="p-3">Unit price</th>
+                        <th class="p-3">Total value</th>
                         <th class="p-3">Condition</th>
                         <th class="p-3">Purchase</th>
                         <th class="p-3">Notes</th>
@@ -46,6 +48,8 @@
                                     <span class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">Low</span>
                                 @endif
                             </td>
+                            <td class="p-3">{{ $item->unit_price !== null ? '$'.number_format((float) $item->unit_price, 2) : '—' }}</td>
+                            <td class="p-3">{{ $item->totalValue() !== null ? '$'.number_format($item->totalValue(), 2) : '—' }}</td>
                             <td class="p-3">{{ \App\Models\InventoryItem::CONDITIONS[$item->condition] ?? $item->condition }}</td>
                             <td class="p-3">{{ $item->purchase_date?->format('Y-m-d') ?? '—' }}</td>
                             <td class="p-3 max-w-xs truncate">{{ $item->notes ?? '—' }}</td>

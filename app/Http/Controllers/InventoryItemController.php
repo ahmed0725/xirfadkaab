@@ -45,7 +45,7 @@ class InventoryItemController extends Controller
     {
         InventoryItem::create($request->validated());
 
-        return redirect()->route('inventory.index')->with('success', 'Item added.');
+        return redirect()->route('inventory-items.index')->with('success', 'Item added.');
     }
 
     public function show(InventoryItem $inventoryItem): View
@@ -62,13 +62,13 @@ class InventoryItemController extends Controller
     {
         $inventoryItem->update($request->validated());
 
-        return redirect()->route('inventory.index')->with('success', 'Item updated.');
+        return redirect()->route('inventory-items.index')->with('success', 'Item updated.');
     }
 
     public function destroy(InventoryItem $inventoryItem): RedirectResponse
     {
         $inventoryItem->delete();
 
-        return redirect()->route('inventory.index')->with('success', 'Item deleted.');
+        return redirect()->route('inventory-items.index')->with('success', 'Item deleted.');
     }
 }

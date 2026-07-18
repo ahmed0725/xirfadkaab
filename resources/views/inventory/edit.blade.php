@@ -18,13 +18,17 @@
                     <input id="quantity" type="number" min="0" name="quantity" value="{{ old('quantity', $item->quantity) }}" class="form-control mt-1" required>
                 </div>
                 <div>
-                    <x-input-label for="condition" value="Condition" />
-                    <select id="condition" name="condition" class="form-control mt-1" required>
-                        @foreach(\App\Models\InventoryItem::CONDITIONS as $value => $label)
-                            <option value="{{ $value }}" @selected(old('condition', $item->condition) === $value)>{{ $label }}</option>
-                        @endforeach
-                    </select>
+                    <x-input-label for="unit_price" value="Unit price ($)" />
+                    <input id="unit_price" type="number" min="0" step="0.01" name="unit_price" value="{{ old('unit_price', $item->unit_price) }}" class="form-control mt-1" placeholder="Price per unit">
                 </div>
+            </div>
+            <div>
+                <x-input-label for="condition" value="Condition" />
+                <select id="condition" name="condition" class="form-control mt-1" required>
+                    @foreach(\App\Models\InventoryItem::CONDITIONS as $value => $label)
+                        <option value="{{ $value }}" @selected(old('condition', $item->condition) === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
             </div>
             <div class="grid gap-4 md:grid-cols-2">
                 <div>

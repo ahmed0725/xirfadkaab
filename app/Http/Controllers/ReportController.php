@@ -603,19 +603,24 @@ class ReportController extends Controller
             ],
             'inventory_available' => [
                 'table' => [
-                    'columns' => ['Item', 'Category', 'Quantity', 'Condition', 'Purchase date', 'Notes'],
+                    'columns' => ['Item', 'Category', 'Quantity', 'Unit Price', 'Total Value', 'Condition', 'Purchase date', 'Notes'],
                     'rows' => $inventoryItems->filter(fn (InventoryItem $i) => $i->quantity > 0)->map(function (InventoryItem $i) {
                         return [
                             $i->item_name,
                             $i->category,
                             (string) $i->quantity,
+                            $i->unit_price !== null ? number_format((float) $i->unit_price, 2) : '—',
+                            $i->totalValue() !== null ? number_format($i->totalValue(), 2) : '—',
                             InventoryItem::CONDITIONS[$i->condition] ?? $i->condition,
                             $i->purchase_date?->format('Y-m-d') ?? '—',
                             Str::limit((string) $i->notes, 40) ?: '—',
                         ];
                     })->values()->all(),
                 ],
-                'summary' => ['Items in stock' => $inventoryItems->filter(fn (InventoryItem $i) => $i->quantity > 0)->count()],
+                'summary' => [
+                    'Items in stock' => $inventoryItems->filter(fn (InventoryItem $i) => $i->quantity > 0)->count(),
+                    'Total stock value' => number_format($inventoryItems->sum(fn (InventoryItem $i) => $i->totalValue() ?? 0), 2),
+                ],
             ],
             'inventory_low_stock' => [
                 'table' => [
